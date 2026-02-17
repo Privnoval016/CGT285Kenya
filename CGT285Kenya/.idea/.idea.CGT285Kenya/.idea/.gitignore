@@ -2,9 +2,9 @@
 /shelf/
 /workspace.xml
 # Rider ignored files
-/modules.xml
 /.idea.CGT285Kenya.iml
 /contentModel.xml
+/modules.xml
 /projectSettingsUpdater.xml
 # Ignored default folder with query files
 /queries/
