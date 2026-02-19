@@ -1,11 +1,17 @@
 using UnityEngine;
 
 /**
+ * <summary>
  * InputController is a singleton that manages local player input.
- * It supports both mobile touch controls (virtual joysticks) and keyboard input.
- * This class reads input and packages it into NetworkInputData for Fusion.
- * 
- * Pattern: Singleton for easy access from anywhere
+ * It supports both mobile touch controls (virtual joysticks) and keyboard input,
+ * packaging everything into a NetworkInputData struct for Fusion.
+ *
+ * Aim / shoot design:
+ *   ReadRawInput() accumulates raw aim state every Update().
+ *   GetNetworkInput() is called by Fusion's OnInput callback at tick-rate and
+ *   performs release detection atomically, so AimJustReleased appears in
+ *   exactly one network tick and is never dropped.
+ * </summary>
  */
 public class InputController : MonoBehaviour
 {
@@ -14,24 +20,29 @@ public class InputController : MonoBehaviour
     [Header("Mobile Input References")]
     [SerializeField] private MobileJoystick movementJoystick;
     [SerializeField] private MobileJoystick aimJoystick;
-    
+
     [Header("Keyboard Input Settings")]
     [SerializeField] private bool useKeyboardInput = true;
-    
-    [Header("Input Smoothing")]
-    [SerializeField] private float inputSmoothing = 0.1f;
-    
+
+    #region Private State
+
     private Vector2 movementInput;
-    private Vector2 aimInput;
-    private Vector2 previousAimInput;
-    private Vector2 lastAimDirection;
+    private Vector2 rawAimInput;
+    private bool ability1Pressed;
+
     private float aimHoldStartTime = -1f;
-    private float aimReleaseDuration = -1f;
-    private bool aimWasReleased;
-    
-    private bool actionButtonPressed;
-    private bool ability1ButtonPressed;
-    
+    private Vector2 lastNonZeroAimDir;
+
+    // Latched release — persists until GetNetworkInput consumes it so the event
+    // is never lost between an Update() and the next OnInput() tick.
+    private bool pendingAimRelease;
+    private Vector2 pendingReleaseDirection;
+    private float pendingReleaseDuration; // captured at release time; aimHoldStartTime is -1 by then
+
+    private Vector2 prevAimInput;
+
+    #endregion
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -44,134 +55,133 @@ public class InputController : MonoBehaviour
 
     private void Update()
     {
-        ReadInput();
-        UpdateAimHoldDuration();
+        ReadRawInput();
+        TrackAimHold();
     }
 
     /**
-     * Reads input from both mobile joysticks and keyboard.
-     * Mobile takes priority if joysticks are active.
+     * <summary>
+     * Reads raw device input every frame.
+     * Mobile joystick takes priority over keyboard when active.
+     * </summary>
      */
-    private void ReadInput()
+    private void ReadRawInput()
     {
-        // Movement Input
         if (movementJoystick != null && movementJoystick.IsActive)
         {
             movementInput = movementJoystick.Direction;
         }
         else if (useKeyboardInput)
         {
-            float horizontal = 0f;
-            float vertical = 0f;
-            
-            if (Input.GetKey(KeyCode.W)) vertical += 1f;
-            if (Input.GetKey(KeyCode.S)) vertical -= 1f;
-            if (Input.GetKey(KeyCode.A)) horizontal -= 1f;
-            if (Input.GetKey(KeyCode.D)) horizontal += 1f;
-            
-            movementInput = new Vector2(horizontal, vertical).normalized;
+            float h = 0f, v = 0f;
+            if (Input.GetKey(KeyCode.W)) v += 1f;
+            if (Input.GetKey(KeyCode.S)) v -= 1f;
+            if (Input.GetKey(KeyCode.A)) h -= 1f;
+            if (Input.GetKey(KeyCode.D)) h += 1f;
+            movementInput = new Vector2(h, v).normalized;
         }
-        
-        // Aim Input
+        else
+        {
+            movementInput = Vector2.zero;
+        }
+
         if (aimJoystick != null && aimJoystick.IsActive)
         {
-            aimInput = aimJoystick.Direction;
+            rawAimInput = aimJoystick.Direction;
         }
         else if (useKeyboardInput)
         {
-            float horizontal = 0f;
-            float vertical = 0f;
-            
-            if (Input.GetKey(KeyCode.UpArrow)) vertical += 1f;
-            if (Input.GetKey(KeyCode.DownArrow)) vertical -= 1f;
-            if (Input.GetKey(KeyCode.LeftArrow)) horizontal -= 1f;
-            if (Input.GetKey(KeyCode.RightArrow)) horizontal += 1f;
-            
-            aimInput = new Vector2(horizontal, vertical).normalized;
+            float h = 0f, v = 0f;
+            if (Input.GetKey(KeyCode.UpArrow))    v += 1f;
+            if (Input.GetKey(KeyCode.DownArrow))  v -= 1f;
+            if (Input.GetKey(KeyCode.LeftArrow))  h -= 1f;
+            if (Input.GetKey(KeyCode.RightArrow)) h += 1f;
+            rawAimInput = new Vector2(h, v).normalized;
         }
-        
-        // Button Input
-        if (useKeyboardInput)
+        else
         {
-            if (Input.GetKeyDown(KeyCode.Space)) actionButtonPressed = true;
-            if (Input.GetKeyDown(KeyCode.Q)) ability1ButtonPressed = true;
+            rawAimInput = Vector2.zero;
         }
+
+        if (useKeyboardInput && Input.GetKeyDown(KeyCode.Q))
+            ability1Pressed = true;
     }
 
     /**
      * <summary>
-     * Tracks how long the aim joystick has been held.
-     * This determines pass vs shot behavior.
+     * Tracks how long the aim stick has been held and latches a release event
+     * when the stick returns to neutral.
      * </summary>
      */
-    private void UpdateAimHoldDuration()
+    private void TrackAimHold()
     {
-        if (aimInput.magnitude > 0.1f)
+        const float deadzone = 0.1f;
+        bool aimActive = rawAimInput.magnitude > deadzone;
+        bool prevWasActive = prevAimInput.magnitude > deadzone;
+
+        if (aimActive)
         {
-            // Aim is being held
-            if (aimHoldStartTime < 0)
-            {
+            if (aimHoldStartTime < 0f)
                 aimHoldStartTime = Time.time;
-            }
-            lastAimDirection = aimInput; // Store direction while holding
-            aimWasReleased = false;
+
+            lastNonZeroAimDir = rawAimInput.normalized;
         }
-        else if (previousAimInput.magnitude > 0.1f)
+        else if (prevWasActive && !aimActive)
         {
-            // Aim was just released this frame
-            if (aimHoldStartTime >= 0)
+            if (aimHoldStartTime >= 0f)
             {
-                aimReleaseDuration = Time.time - aimHoldStartTime;
-                aimWasReleased = true;
+                float duration = Time.time - aimHoldStartTime;
+                pendingAimRelease = true;
+                pendingReleaseDirection = lastNonZeroAimDir;
+                pendingReleaseDuration = duration; // must capture here; aimHoldStartTime reset below
                 aimHoldStartTime = -1f;
-                Debug.Log($"[InputController] Aim released after {aimReleaseDuration}s in direction {lastAimDirection}");
+                Debug.Log($"[InputController] Aim released after {duration:F3}s, dir={lastNonZeroAimDir}");
             }
         }
-        
-        previousAimInput = aimInput;
+
+        prevAimInput = rawAimInput;
     }
 
     /**
      * <summary>
-     * Packages current input state into NetworkInputData for Fusion.
-     * This is called by NetworkCallbackHandler.OnInput().
+     * Packages current input into a NetworkInputData for Fusion.
+     * Called by NetworkCallbackHandler.OnInput() at tick-rate.
+     * Consumes the latched aim-release atomically.
      * </summary>
-     * <returns>The network input data structure</returns>
+     * <returns>The fully-populated network input struct for this tick.</returns>
      */
     public NetworkInputData GetNetworkInput()
     {
-        var input = new NetworkInputData
+        var data = new NetworkInputData
         {
             MovementInput = movementInput,
-            AimInput = aimInput,
-            AimHoldDuration = aimHoldStartTime >= 0 ? Time.time - aimHoldStartTime : 0f,
-            AimJustReleased = aimWasReleased,
-            LastAimDirection = lastAimDirection
+            AimInput = rawAimInput,
+            // While aiming: live duration. On the release tick: use the captured latch value,
+            // because aimHoldStartTime is already -1 when AimJustReleased is true.
+            AimHoldDuration = pendingAimRelease ? pendingReleaseDuration
+                              : (aimHoldStartTime >= 0f ? Time.time - aimHoldStartTime : 0f),
+            AimJustReleased = pendingAimRelease,
+            LastAimDirection = pendingAimRelease ? pendingReleaseDirection : lastNonZeroAimDir,
         };
-        
-        if (actionButtonPressed)
-            input.Buttons.Set(InputButton.Action, true);
-        if (ability1ButtonPressed)
-            input.Buttons.Set(InputButton.Ability1, true);
-        
-        // Reset button states after reading
-        actionButtonPressed = false;
-        ability1ButtonPressed = false;
-        
-        // Consume aim release after sending once
-        if (aimWasReleased)
+
+        if (ability1Pressed)
+            data.Buttons.Set(InputButton.Ability1, true);
+
+        ability1Pressed = false;
+
+        if (pendingAimRelease)
         {
-            aimWasReleased = false;
-            aimReleaseDuration = -1f;
+            pendingAimRelease = false;
+            pendingReleaseDirection = Vector2.zero;
+            pendingReleaseDuration = 0f;
         }
-        
-        return input;
+
+        return data;
     }
 
     /**
-     * Public API for mobile UI buttons to set button states
+     * <summary>Public API for mobile UI ability button.</summary>
+     * <param name="pressed">Whether the button is pressed.</param>
      */
-    public void SetActionButton(bool pressed) => actionButtonPressed = pressed;
-    public void SetAbility1Button(bool pressed) => ability1ButtonPressed = pressed;
+    public void SetAbility1Button(bool pressed) => ability1Pressed = pressed;
 }
-

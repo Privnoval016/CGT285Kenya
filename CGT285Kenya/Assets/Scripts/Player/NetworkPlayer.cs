@@ -2,373 +2,292 @@ using UnityEngine;
 using Fusion;
 
 /**
+ * <summary>
  * NetworkPlayer is the main networked player controller.
- * It handles movement, ball possession, and ability execution.
- * 
- * Key Fusion Concepts:
- * - Inherits from NetworkBehaviour (similar to MonoBehaviour but networked)
- * - Uses [Networked] attribute for synchronized properties
- * - GetInput() retrieves input from the network for this player
- * - FixedUpdateNetwork() is Fusion's equivalent of FixedUpdate, runs on all clients for prediction
- * 
- * IMPORTANT: Add NetworkTransform component in Inspector for smooth remote player movement!
+ *
+ * Fusion Shared Mode:
+ *   Each player's NetworkObject is owned by that player's client.
+ *   GetInput() delivers input only on the owning client (HasInputAuthority).
+ *   [Networked] property writes on the player only work on its own client.
+ *
+ * Possession model:
+ *   HasBall is a derived property — returns (ball.CurrentHolder == this).
+ *   The ball's [Networked] CurrentHolder is the single source of truth.
+ *
+ * Shoot / pass:
+ *   Right-stick tap (hold less than shotChargeThreshold) → pass at passSpeed.
+ *   Right-stick hold then release (hold >= shotChargeThreshold) → shot at shotSpeed.
+ * </summary>
  */
 [RequireComponent(typeof(CharacterController))]
 public class NetworkPlayer : NetworkBehaviour
 {
-    [Header("Movement Settings")]
-    [SerializeField] private float moveSpeed = 5f;
+    [Header("Movement")]
+    [SerializeField] private float moveSpeed = 6f;
     [SerializeField] private float rotationSpeed = 720f;
     [SerializeField] private float gravity = 20f;
-    
+
     [Header("Ball Interaction")]
-    [SerializeField] private Transform ballHoldPosition;
     [SerializeField] private float ballPickupRange = 1.5f;
-    [SerializeField] private float ballStealRange = 1.2f;
-    
-    [Header("Shooting Settings")]
-    [SerializeField] private float passSpeed = 10f;
-    [SerializeField] private float shotSpeed = 20f;
-    [SerializeField] private float shotChargeThreshold = 0.3f;
-    
+    [SerializeField] private float ballStealRange = 1.3f;
+    [SerializeField] private float stealDotThreshold = 0.65f;
+
+    [Header("Shooting")]
+    [SerializeField] private float passSpeed = 12f;
+    [SerializeField] private float shotSpeed = 22f;
+    [SerializeField] private float shotChargeThreshold = 0.25f;
+
     [Header("Team Visuals")]
-    [SerializeField] private Material playerMaterial;
     [SerializeField] private Color team0Color = Color.blue;
     [SerializeField] private Color team1Color = Color.red;
     [SerializeField] private MeshRenderer visualMesh;
-    
-    // Components
-    private CharacterController characterController;
+
+    #region Components & State
+
+    private CharacterController cc;
     private NetworkBallController ball;
     private AbilityController abilityController;
     private Material materialInstance;
-    
-    // Networked properties - these are automatically synchronized by Fusion
-    [Networked] public bool HasBall { get; set; }
-    [Networked] public int Team { get; set; }
-    [Networked] private Vector3 NetworkedVelocity { get; set; }
-    
-    // Local cached values
-    private Vector3 moveDirection;
-    private Vector3 lookDirection;
-    private float verticalVelocity;
-    private int lastTeam = -1; // Track team changes locally
 
-    private void Awake()
-    {
-        characterController = GetComponent<CharacterController>();
-        abilityController = GetComponent<AbilityController>();
-    }
+    [Networked] public int Team { get; set; }
 
     /**
      * <summary>
-     * Called when the object is spawned on the network.
-     * This is Fusion's version of Start() for networked objects.
+     * True when this player holds the ball.
+     * Derived from ball.CurrentHolder to avoid cross-object authority writes.
+     * </summary>
+     */
+    public bool HasBall => ball != null && ball.Object.IsValid && ball.CurrentHolder == this;
+
+    private Vector3 moveDir;
+    private float verticalVelocity;
+    private int prevTeam = -1;
+
+    // Throttle RPC sends — only re-send pickup/steal every few ticks.
+    private int lastPickupRpcTick = -100;
+    private int lastStealRpcTick = -100;
+    private const int RpcResendInterval = 6;
+
+    #endregion
+
+    #region Unity Lifecycle
+
+    private void Awake()
+    {
+        cc = GetComponent<CharacterController>();
+        abilityController = GetComponent<AbilityController>();
+    }
+
+    #endregion
+
+    #region Fusion Lifecycle
+
+    /**
+     * <summary>
+     * Called once when the networked object is spawned on this client.
+     * Assigns team and sets up visuals.
      * </summary>
      */
     public override void Spawned()
     {
-        // Find the ball in the scene
         ball = FindFirstObjectByType<NetworkBallController>();
-        
-        // Assign team based on player ID (only state authority sets this)
+
         if (Object.HasStateAuthority)
         {
-            Team = Object.InputAuthority.PlayerId < 3 ? 0 : 1;
-            Debug.Log($"[NetworkPlayer] State authority assigned Player {Object.InputAuthority.PlayerId} to Team {Team}");
+            Team = (Object.InputAuthority.PlayerId <= 2) ? 0 : 1;
+            Debug.Log($"[Player] player {Object.InputAuthority.PlayerId} → team {Team}");
         }
-        
-        // Setup team colors
-        lastTeam = Team;
+
+        prevTeam = Team;
         SetupTeamColor();
-        
-        // Setup ball hold position if not set
-        if (ballHoldPosition == null)
-        {
-            var holdPos = new GameObject("BallHoldPosition");
-            holdPos.transform.SetParent(transform);
-            holdPos.transform.localPosition = new Vector3(0, 0, 0.8f);
-            ballHoldPosition = holdPos.transform;
-        }
     }
-    
+
     /**
      * <summary>
-     * Called every frame for rendering updates.
-     * Check if team changed and update colors.
+     * Called every render frame. Used for cosmetic reactions to networked
+     * property changes (team color) without touching simulation state.
      * </summary>
      */
     public override void Render()
     {
-        // Check if team has changed since last frame
-        if (Team != lastTeam)
+        if (Team != prevTeam)
         {
-            lastTeam = Team;
+            prevTeam = Team;
             SetupTeamColor();
-            Debug.Log($"[NetworkPlayer] Team changed for Player {Object.InputAuthority.PlayerId} to Team {Team}");
-        }
-    }
-    
-    /**
-     * <summary>
-     * Sets up the team color for this player based on their team assignment.
-     * Creates a material instance to avoid affecting the prefab material.
-     * </summary>
-     */
-    private void SetupTeamColor()
-    {
-        // Find the visual mesh if not assigned
-        if (visualMesh == null)
-        {
-            // Look for a child named "Visual" or just get the first MeshRenderer
-            Transform visualChild = transform.Find("Visual");
-            if (visualChild != null)
-            {
-                visualMesh = visualChild.GetComponent<MeshRenderer>();
-            }
-            
-            if (visualMesh == null)
-            {
-                visualMesh = GetComponentInChildren<MeshRenderer>();
-            }
-        }
-        
-        if (visualMesh != null)
-        {
-            // Use existing material if playerMaterial not assigned
-            if (playerMaterial == null)
-            {
-                playerMaterial = visualMesh.sharedMaterial;
-            }
-            
-            if (playerMaterial != null)
-            {
-                // Create material instance
-                materialInstance = new Material(playerMaterial);
-                visualMesh.material = materialInstance;
-                
-                // Set color based on team
-                Color teamColor = Team == 0 ? team0Color : team1Color;
-                materialInstance.color = teamColor;
-                
-                Debug.Log($"[NetworkPlayer] Player {Object.InputAuthority.PlayerId} set to Team {Team} with color {teamColor}");
-            }
-            else
-            {
-                Debug.LogWarning($"[NetworkPlayer] No material found for Player {Object.InputAuthority.PlayerId}");
-            }
-        }
-        else
-        {
-            Debug.LogWarning($"[NetworkPlayer] No MeshRenderer found in children for Player {Object.InputAuthority.PlayerId}");
         }
     }
 
-    /// <summary>
-    /// FixedUpdateNetwork is called for every network tick (default 60Hz).
-    /// This runs on all clients for client-side prediction and on server for authority.
-    /// Input is automatically rewound and replayed for proper lag compensation.
-    /// </summary>
+    /**
+     * <summary>
+     * Deterministic simulation tick. Input is rewound and replayed by Fusion
+     * for client-side prediction.
+     * </summary>
+     */
     public override void FixedUpdateNetwork()
     {
-        // Only process input for this player if we have input authority
-        if (GetInput(out NetworkInputData input))
-        {
-            // Process movement
-            ProcessMovement(input);
-            
-            // Process rotation
-            ProcessRotation(input);
-            
-            // Process ball interactions
-            ProcessBallInteractions(input);
-            
-            // Process ability (single ability only)
-            ProcessAbility(input);
-        }
-        
-        // Update ball position if we're holding it
-        if (HasBall && ball != null)
-        {
-            UpdateBallPosition();
-        }
+        if (!GetInput(out NetworkInputData input)) return;
+
+        ProcessMovement(input);
+        ProcessRotation(input);
+        ProcessBallInteractions(input);
+        ProcessAbility(input);
     }
+
+    #endregion
+
+    #region Movement
 
     private void ProcessMovement(NetworkInputData input)
     {
-        // Calculate movement direction
-        Vector3 inputDirection = new Vector3(input.MovementInput.x, 0, input.MovementInput.y);
-        
-        // Apply camera-relative movement (top-down camera)
-        moveDirection = inputDirection.normalized;
-        
-        // Calculate horizontal movement
-        Vector3 movement = moveDirection * moveSpeed * Runner.DeltaTime;
-        
-        // Handle gravity properly
-        if (characterController.isGrounded)
-        {
-            // Reset vertical velocity when grounded
-            verticalVelocity = -2f; // Small downward force to keep grounded
-        }
+        moveDir = new Vector3(input.MovementInput.x, 0f, input.MovementInput.y).normalized;
+
+        Vector3 move = moveDir * moveSpeed * Runner.DeltaTime;
+
+        if (cc.isGrounded)
+            verticalVelocity = -2f;
         else
-        {
-            // Apply gravity when in air
             verticalVelocity -= gravity * Runner.DeltaTime;
-        }
-        
-        // Apply vertical velocity
-        movement.y = verticalVelocity * Runner.DeltaTime;
-        
-        // Move the character
-        characterController.Move(movement);
+
+        move.y = verticalVelocity * Runner.DeltaTime;
+        cc.Move(move);
     }
 
     private void ProcessRotation(NetworkInputData input)
     {
-        // Determine look direction based on input priority:
-        // 1. Aim joystick (if active)
-        // 2. Movement direction (if moving)
-        Vector3 lookDir = Vector3.zero;
-        
+        Vector3 lookDir;
+
         if (input.AimInput.magnitude > 0.1f)
-        {
-            lookDir = new Vector3(input.AimInput.x, 0, input.AimInput.y);
-        }
-        else if (moveDirection.magnitude > 0.1f)
-        {
-            lookDir = moveDirection;
-        }
-        
-        if (lookDir.magnitude > 0.1f)
-        {
-            lookDirection = lookDir.normalized;
-            Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
-            transform.rotation = Quaternion.RotateTowards(
-                transform.rotation,
-                targetRotation,
-                rotationSpeed * Runner.DeltaTime
-            );
-        }
+            lookDir = new Vector3(input.AimInput.x, 0f, input.AimInput.y);
+        else if (moveDir.magnitude > 0.1f)
+            lookDir = moveDir;
+        else
+            return;
+
+        Quaternion target = Quaternion.LookRotation(lookDir.normalized);
+        transform.rotation = Quaternion.RotateTowards(
+            transform.rotation, target, rotationSpeed * Runner.DeltaTime);
     }
+
+    #endregion
+
+    #region Ball Interactions
 
     private void ProcessBallInteractions(NetworkInputData input)
     {
-        if (ball == null) return;
-        
-        // Check for ball pickup
+        if (ball == null || !ball.Object.IsValid) return;
+
         if (!HasBall && ball.IsAvailable)
         {
-            float distanceToBall = Vector3.Distance(transform.position, ball.transform.position);
-            
-            if (distanceToBall <= ballPickupRange)
+            float dist = Vector3.Distance(transform.position, ball.transform.position);
+            int tick = Runner.Tick;
+            if (dist <= ballPickupRange && tick - lastPickupRpcTick > RpcResendInterval)
             {
-                // Automatically pick up ball when close
-                PickupBall();
+                lastPickupRpcTick = tick;
+                ball.RPC_RequestPickup(Object.InputAuthority);
             }
         }
-        
-        // Check for ball steal from opponent
-        if (!HasBall && ball.CurrentHolder != null && ball.CurrentHolder != this)
+
+        // Steal: fires when this player enters the space in front of the holder
+        // (the steal zone is defined from the holder's perspective, not the thief's).
+        if (!HasBall && ball.IsHeld &&
+            ball.CurrentHolder != null && ball.CurrentHolder != this &&
+            ball.CurrentHolder.Team != Team)
         {
-            // Only steal from opposite team
-            if (ball.CurrentHolder.Team == this.Team)
-                return;
-            
-            // Check if we're facing the opponent and within steal range
-            float distanceToHolder = Vector3.Distance(transform.position, ball.CurrentHolder.transform.position);
-            Vector3 directionToHolder = (ball.CurrentHolder.transform.position - transform.position).normalized;
-            float dot = Vector3.Dot(transform.forward, directionToHolder);
-            
-            // Steal if we're facing them (dot > 0.7) and close enough
-            if (distanceToHolder <= ballStealRange && dot > 0.7f)
+            Vector3 holderToThief = transform.position - ball.CurrentHolder.transform.position;
+            float dist = holderToThief.magnitude;
+            float dot = Vector3.Dot(ball.CurrentHolder.transform.forward, holderToThief.normalized);
+            int tick = Runner.Tick;
+
+            if (dist <= ballStealRange && dot >= stealDotThreshold &&
+                tick - lastStealRpcTick > RpcResendInterval)
             {
-                Debug.Log($"[NetworkPlayer] Player {Object.InputAuthority.PlayerId} stealing ball from Player {ball.CurrentHolder.Object.InputAuthority.PlayerId}");
-                StealBall();
+                lastStealRpcTick = tick;
+                Debug.Log($"[Player] Attempting steal — dist={dist:F2} dot={dot:F2}");
+                ball.RPC_RequestSteal(Object.InputAuthority);
             }
         }
-        
-        // Handle shooting/passing when aim is released
+
         if (HasBall && input.AimJustReleased && input.LastAimDirection.magnitude > 0.1f)
         {
-            // Determine if it's a pass or shot based on hold duration
             bool isShot = input.AimHoldDuration >= shotChargeThreshold;
-            
-            if (isShot)
-            {
-                // Long hold = shot
-                ShootBall(input.LastAimDirection, shotSpeed);
-            }
-            else
-            {
-                // Quick tap = pass
-                PassBall(input.LastAimDirection);
-            }
+            float speed = isShot ? shotSpeed : passSpeed;
+            Vector3 dir = new Vector3(
+                input.LastAimDirection.x, 0f, input.LastAimDirection.y).normalized;
+
+            ReleaseBall(dir, speed);
+
+            Debug.Log($"[Player] {(isShot ? "SHOT" : "PASS")} " +
+                $"holdDuration={input.AimHoldDuration:F3}s speed={speed:F1}");
         }
     }
+
+    /**
+     * <summary>
+     * Routes a ball release to the correct path.
+     * Direct call if this client is the ball's state authority; RPC otherwise.
+     * </summary>
+     * <param name="direction">Normalised world-space launch direction.</param>
+     * <param name="speed">Launch speed in m/s.</param>
+     */
+    private void ReleaseBall(Vector3 direction, float speed)
+    {
+        if (ball == null) return;
+
+        if (ball.Object.HasStateAuthority)
+            ball.Release(direction, speed);
+        else
+            ball.RPC_RequestRelease(Object.InputAuthority, direction, speed);
+    }
+
+    #endregion
+
+    #region Ability
 
     private void ProcessAbility(NetworkInputData input)
     {
-        // Only execute ability if we have the ability controller
         if (abilityController == null) return;
-        
-        // Single ability execution
+
         if (input.Buttons.IsSet(InputButton.Ability1))
-        {
             abilityController.ExecuteAbility(0);
-        }
     }
 
-    private void UpdateBallPosition()
+    #endregion
+
+    #region Team Color
+
+    /**
+     * <summary>
+     * Creates a per-instance material copy and applies the team color.
+     * Called on Spawned() and when the Team property changes.
+     * </summary>
+     */
+    private void SetupTeamColor()
     {
-        if (ballHoldPosition != null)
+        if (visualMesh == null)
         {
-            ball.SetHoldPosition(ballHoldPosition.position);
+            Transform child = transform.Find("Visual");
+            if (child != null) visualMesh = child.GetComponent<MeshRenderer>();
+            if (visualMesh == null) visualMesh = GetComponentInChildren<MeshRenderer>();
         }
+
+        if (visualMesh == null)
+        {
+            Debug.LogWarning($"[NetworkPlayer] No MeshRenderer on player {Object.InputAuthority.PlayerId}");
+            return;
+        }
+
+        if (visualMesh.sharedMaterial == null)
+        {
+            Debug.LogWarning($"[NetworkPlayer] No shared material on player {Object.InputAuthority.PlayerId}");
+            return;
+        }
+
+        if (materialInstance == null)
+            materialInstance = new Material(visualMesh.sharedMaterial);
+
+        materialInstance.color = Team == 0 ? team0Color : team1Color;
+        visualMesh.material = materialInstance;
     }
 
-    private void PickupBall()
-    {
-        if (ball != null && Object.HasStateAuthority)
-        {
-            ball.SetHolder(this);
-            HasBall = true;
-        }
-    }
-
-    private void StealBall()
-    {
-        if (ball != null && Object.HasStateAuthority)
-        {
-            var previousHolder = ball.CurrentHolder;
-            if (previousHolder != null)
-            {
-                previousHolder.HasBall = false;
-            }
-            
-            ball.SetHolder(this);
-            HasBall = true;
-        }
-    }
-
-    private void PassBall(Vector2 direction)
-    {
-        if (ball != null && Object.HasStateAuthority)
-        {
-            Vector3 passDirection = new Vector3(direction.x, 0, direction.y).normalized;
-            ball.Release(passDirection, passSpeed);
-            HasBall = false;
-        }
-    }
-
-    private void ShootBall(Vector2 direction, float speed)
-    {
-        if (ball != null && Object.HasStateAuthority)
-        {
-            Vector3 shootDirection = new Vector3(direction.x, 0, direction.y).normalized;
-            ball.Release(shootDirection, speed);
-            HasBall = false;
-        }
-    }
+    #endregion
 }
-

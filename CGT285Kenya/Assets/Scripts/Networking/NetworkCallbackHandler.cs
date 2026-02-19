@@ -114,8 +114,9 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
     /**
      * <summary>
      * Called when a player leaves the session.
-     * Cleanup happens automatically for NetworkObjects with PlayerRef ownership,
-     * but we log it for debugging.
+     * In Shared mode, Fusion automatically despawns objects owned by the
+     * departing client, but we must manually release the ball if that player
+     * was holding it, and we clean up the NetworkObject if it somehow persists.
      * </summary>
      * <param name="runner">The NetworkRunner instance</param>
      * <param name="player">The PlayerRef that left</param>
@@ -123,16 +124,26 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
         Debug.Log($"[NetworkCallback] Player {player.PlayerId} left the session");
-        
-        // Find and despawn the player's object
-        if (runner.IsSharedModeMasterClient)
+
+        // Release ball if the leaving player held it (runs on the ball's state authority).
+        var ball = UnityEngine.Object.FindFirstObjectByType<NetworkBallController>();
+        if (ball != null && ball.Object != null && ball.Object.IsValid &&
+            ball.Object.HasStateAuthority &&
+            ball.CurrentHolder != null &&
+            ball.CurrentHolder.Object != null &&
+            ball.CurrentHolder.Object.InputAuthority == player)
         {
-            var playerObj = FindPlayerObject(runner, player);
-            if (playerObj != null)
-            {
-                Debug.Log($"[NetworkCallback] Despawning player {player.PlayerId}");
-                runner.Despawn(playerObj);
-            }
+            Debug.Log($"[NetworkCallback] Releasing ball from departing player {player.PlayerId}");
+            ball.Release(UnityEngine.Vector3.zero, 0f);
+        }
+
+        // In Shared mode, the client's own objects are automatically despawned
+        // by the Fusion runtime. Only attempt manual cleanup as a fallback.
+        var playerObj = FindPlayerObject(runner, player);
+        if (playerObj != null && runner.IsSharedModeMasterClient)
+        {
+            Debug.Log($"[NetworkCallback] Manually despawning leftover object for player {player.PlayerId}");
+            runner.Despawn(playerObj);
         }
     }
 

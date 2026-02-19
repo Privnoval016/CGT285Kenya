@@ -2,233 +2,350 @@ using UnityEngine;
 using Fusion;
 
 /**
- * NetworkBallController manages the shared soccer ball in the multiplayer game.
- * The ball is a single networked object that all players can interact with.
- * 
- * Key behaviors:
- * - Ball can be "held" by a player (follows them)
- * - Ball can be "free" (physics-based movement)
- * - Ball ownership/state is authoritative on the server
- * 
- * Fusion Patterns:
- * - Uses State Authority (server controls ball state)
- * - Requires NetworkTransform or NetworkRigidbody for position synchronization
- * - Uses TickTimer for time-based mechanics
- * 
- * IMPORTANT: Add NetworkTransform component in the Inspector!
+ * <summary>
+ * NetworkBallController manages the shared soccer ball.
+ *
+ * Fusion Shared Mode authority model:
+ *   The ball's NetworkObject is owned by the master client. ALL state changes
+ *   route through RPCs targeting StateAuthority so writes always happen on the
+ *   correct peer.
+ *
+ *   HasBall is not stored on the player. Each NetworkPlayer reads
+ *   (ball.CurrentHolder == this) — consistent because CurrentHolder is
+ *   [Networked] and readable by all clients.
+ *
+ * Physics model:
+ *   The Rigidbody is permanently kinematic. Position is integrated manually
+ *   using [Networked] BallVelocity. NetworkTransform handles interpolation
+ *   on non-authority clients.
+ *
+ * Prefab requirements:
+ *   Rigidbody (isKinematic=true, useGravity=false, freeze rotation),
+ *   NetworkObject, NetworkTransform, SphereCollider.
+ * </summary>
  */
 [RequireComponent(typeof(Rigidbody))]
 public class NetworkBallController : NetworkBehaviour
 {
-    [Header("Ball Settings")]
-    [SerializeField] private float _groundDrag = 2f;
-    [SerializeField] private float _airDrag = 0.5f;
-    [SerializeField] private float _maxSpeed = 25f;
-    [SerializeField] private float _pickupCooldown = 0.5f;
-    
-    [Header("Physics")]
-    [SerializeField] private LayerMask _groundLayer;
-    [SerializeField] private float _groundCheckDistance = 0.2f;
-    
-    // Components
-    private Rigidbody _rigidbody;
-    
-    // Networked state
-    [Networked] public NetworkPlayer CurrentHolder { get; set; }
+    [Header("Ball Physics")]
+    [SerializeField] private float groundDrag = 3.5f;
+    [SerializeField] private float airDrag = 0.3f;
+    [SerializeField] private float maxSpeed = 28f;
+    [SerializeField] private float gravityStrength = 12f;
+
+    [Header("Possession")]
+    [SerializeField] private float pickupCooldown = 0.4f;
+    [SerializeField] private float holdForwardOffset = 0.9f;
+
+    [Header("Ground Check")]
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private float groundCheckDist = 0.6f;
+    [SerializeField] private float ballRadius = 0.25f;
+    [SerializeField] private float minFloorY = 0.25f;
+
+    #region Components & Networked State
+
+    private Rigidbody rb;
+
+    /** The player currently holding the ball, or null when free. */
+    [Networked] public NetworkPlayer CurrentHolder { get; private set; }
+
+    /** Ball velocity while free; integrated every tick by state authority. */
+    [Networked] public Vector3 BallVelocity { get; private set; }
+
     [Networked] private TickTimer PickupCooldownTimer { get; set; }
-    [Networked] private Vector3 HoldPosition { get; set; }
-    
-    // Properties
-    public bool IsAvailable => CurrentHolder == null && PickupCooldownTimer.ExpiredOrNotRunning(Runner);
-    public bool IsHeld => CurrentHolder != null;
-    
+
+    #endregion
+
+    #region Derived Properties
+
+    /**
+     * <summary>True when the ball has no holder and the cooldown has expired.</summary>
+     */
+    public bool IsAvailable =>
+        Object.IsValid &&
+        CurrentHolder == null &&
+        PickupCooldownTimer.ExpiredOrNotRunning(Runner);
+
+    /**
+     * <summary>True while any player holds the ball.</summary>
+     */
+    public bool IsHeld => Object.IsValid && CurrentHolder != null;
+
+    #endregion
+
+    #region Unity Lifecycle
+
     private void Awake()
     {
-        _rigidbody = GetComponent<Rigidbody>();
+        rb = GetComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        rb.freezeRotation = true;
     }
 
     public override void Spawned()
     {
-        // Initialize ball at center of field
         if (Object.HasStateAuthority)
         {
-            transform.position = new Vector3(0, 0.5f, 0);
+            transform.position = new Vector3(0f, 0.5f, 0f);
+            BallVelocity = Vector3.zero;
             CurrentHolder = null;
         }
     }
 
+    #endregion
+
+    #region Fusion Tick
+
     public override void FixedUpdateNetwork()
     {
-        // Only the state authority (server/master client) controls ball physics
-        if (!Object.HasStateAuthority)
-            return;
-            
-        // Update ball behavior based on state
+        if (!Object.HasStateAuthority) return;
+
         if (IsHeld)
+            TickHeld();
+        else
+            TickFree();
+    }
+
+    /**
+     * <summary>
+     * Snaps the ball to the hold position in front of the current holder.
+     * Computed from the holder's transform on the authority peer so no
+     * cross-object [Networked] write is needed.
+     * </summary>
+     */
+    private void TickHeld()
+    {
+        if (CurrentHolder == null) return;
+
+        Vector3 pos = CurrentHolder.transform.position
+            + CurrentHolder.transform.forward * holdForwardOffset;
+        pos.y = CurrentHolder.transform.position.y + 0.1f;
+
+        transform.position = pos;
+        BallVelocity = Vector3.zero;
+    }
+
+    /**
+     * <summary>
+     * Manually integrates BallVelocity with drag and gravity.
+     * Deterministic because it uses Runner.DeltaTime (fixed tick delta).
+     * Uses a SphereCast so ground detection works even when the LayerMask is
+     * not configured — falls back to a hard floor clamp at minFloorY.
+     * </summary>
+     */
+    private void TickFree()
+    {
+        float dt = Runner.DeltaTime;
+
+        // SphereCast downward from ball centre. Works even if groundLayer = 0
+        // because the hard floor clamp below acts as a last-resort safety net.
+        bool grounded = Physics.SphereCast(
+            transform.position,
+            ballRadius,
+            Vector3.down,
+            out _,
+            groundCheckDist,
+            groundLayer == 0 ? ~0 : (int)groundLayer,
+            QueryTriggerInteraction.Ignore);
+
+        bool hitHardFloor = transform.position.y <= minFloorY;
+        grounded = grounded || hitHardFloor;
+
+        if (!grounded)
         {
-            UpdateHeldBehavior();
+            BallVelocity += Vector3.down * gravityStrength * dt;
         }
         else
         {
-            UpdateFreeBehavior();
+            if (BallVelocity.y < 0f)
+                BallVelocity = new Vector3(BallVelocity.x, 0f, BallVelocity.z);
+
+            if (hitHardFloor)
+            {
+                Vector3 p = transform.position;
+                p.y = minFloorY;
+                transform.position = p;
+            }
         }
+
+        float drag = grounded ? groundDrag : airDrag;
+        Vector3 hVel = new Vector3(BallVelocity.x, 0f, BallVelocity.z);
+        hVel = Vector3.MoveTowards(hVel, Vector3.zero, drag * hVel.magnitude * dt);
+        BallVelocity = new Vector3(hVel.x, BallVelocity.y, hVel.z);
+
+        float hMag = new Vector2(BallVelocity.x, BallVelocity.z).magnitude;
+        if (hMag > maxSpeed)
+        {
+            float s = maxSpeed / hMag;
+            BallVelocity = new Vector3(BallVelocity.x * s, BallVelocity.y, BallVelocity.z * s);
+        }
+
+        transform.position += BallVelocity * dt;
+
+        // Belt-and-suspenders floor clamp after position integration.
+        if (transform.position.y < minFloorY)
+        {
+            Vector3 p = transform.position;
+            p.y = minFloorY;
+            transform.position = p;
+            if (BallVelocity.y < 0f)
+                BallVelocity = new Vector3(BallVelocity.x, 0f, BallVelocity.z);
+        }
+    }
+
+    #endregion
+
+    #region Authority Helpers
+
+    private void AuthorityPickup(NetworkPlayer picker)
+    {
+        CurrentHolder = picker;
+        BallVelocity = Vector3.zero;
+        Debug.Log($"[Ball] Pickup by player {picker.Object.InputAuthority.PlayerId}");
+    }
+
+    private void AuthorityRelease(Vector3 direction, float speed)
+    {
+        CurrentHolder = null;
+        BallVelocity = direction.normalized * speed;
+        PickupCooldownTimer = TickTimer.CreateFromSeconds(Runner, pickupCooldown);
+        Debug.Log($"[Ball] Released speed={speed:F1} dir={direction}");
     }
 
     /**
-     * When held by a player, the ball follows them smoothly
+     * <summary>
+     * Direct release — only valid when this client IS the state authority.
+     * NetworkPlayer calls this path when ball.Object.HasStateAuthority is true.
+     * </summary>
+     * <param name="direction">Normalised world-space direction.</param>
+     * <param name="speed">Launch speed in m/s.</param>
      */
-    private void UpdateHeldBehavior()
-    {
-        if (CurrentHolder == null) return;
-        
-        // Disable physics while held
-        if (!_rigidbody.isKinematic)
-        {
-            // Reset velocities BEFORE making kinematic
-            _rigidbody.linearVelocity = Vector3.zero;
-            _rigidbody.angularVelocity = Vector3.zero;
-            _rigidbody.isKinematic = true;
-        }
-        
-        // Directly set position to hold position (no lerp needed, NetworkTransform handles smoothing)
-        transform.position = HoldPosition;
-    }
-
-    /**
-     * When free, the ball uses physics and gradually slows down
-     */
-    private void UpdateFreeBehavior()
-    {
-        // Enable physics when free
-        if (_rigidbody.isKinematic)
-        {
-            _rigidbody.isKinematic = false;
-        }
-        
-        // Apply drag based on whether ball is grounded
-        bool isGrounded = IsGrounded();
-        _rigidbody.linearDamping = isGrounded ? _groundDrag : _airDrag;
-        
-        // Clamp velocity
-        if (_rigidbody.linearVelocity.magnitude > _maxSpeed)
-        {
-            _rigidbody.linearVelocity = _rigidbody.linearVelocity.normalized * _maxSpeed;
-        }
-    }
-
-    /// <summary>
-    /// Sets the player who is holding the ball.
-    /// Only callable by state authority (server).
-    /// </summary>
-    public void SetHolder(NetworkPlayer player)
-    {
-        if (!Object.HasStateAuthority)
-        {
-            Debug.LogWarning("Only state authority can set ball holder!");
-            return;
-        }
-        
-        CurrentHolder = player;
-        
-        if (player != null)
-        {
-            Debug.Log($"Player {player.Object.InputAuthority.PlayerId} picked up the ball");
-        }
-    }
-
-    /// <summary>
-    /// Sets the position where the ball should be held (in front of player)
-    /// </summary>
-    public void SetHoldPosition(Vector3 position)
-    {
-        HoldPosition = position;
-    }
-
-    /// <summary>
-    /// Releases the ball with velocity (pass or shot)
-    /// </summary>
     public void Release(Vector3 direction, float speed)
     {
-        if (!Object.HasStateAuthority)
-        {
-            Debug.LogWarning("Only state authority can release ball!");
-            return;
-        }
-        
-        CurrentHolder = null;
-        
-        // Start pickup cooldown to prevent immediate re-pickup
-        PickupCooldownTimer = TickTimer.CreateFromSeconds(Runner, _pickupCooldown);
-        
-        // Apply velocity
-        _rigidbody.linearVelocity = direction * speed;
-        
-        Debug.Log($"Ball released with speed {speed}");
+        if (!Object.HasStateAuthority) return;
+        AuthorityRelease(direction, speed);
     }
 
-    /// <summary>
-    /// Checks if ball is on the ground
-    /// </summary>
-    private bool IsGrounded()
+    #endregion
+
+    #region RPCs
+
+    /**
+     * <summary>
+     * Any client can request to pick up a free ball.
+     * Passes PlayerRef (a blittable int) to avoid Fusion's prefab-lookup path.
+     * </summary>
+     * <param name="pickerRef">PlayerRef of the requesting player.</param>
+     */
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RPC_RequestPickup(PlayerRef pickerRef)
     {
-        return Physics.Raycast(transform.position, Vector3.down, _groundCheckDistance, _groundLayer);
+        if (!IsAvailable) return;
+        NetworkPlayer picker = ResolvePlayer(pickerRef);
+        if (picker == null) return;
+        AuthorityPickup(picker);
     }
 
-    /// <summary>
-    /// Called when the ball enters a trigger (for goal detection)
-    /// </summary>
+    /**
+     * <summary>
+     * Any client can request to steal the ball from the current holder.
+     * Passes PlayerRef to avoid the prefab-lookup crash when passing NetworkBehaviour refs.
+     * </summary>
+     * <param name="thiefRef">PlayerRef of the stealing player.</param>
+     */
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RPC_RequestSteal(PlayerRef thiefRef)
+    {
+        if (CurrentHolder == null) return;
+        NetworkPlayer thief = ResolvePlayer(thiefRef);
+        if (thief == null) return;
+        if (thief.Team == CurrentHolder.Team) return;
+
+        Debug.Log($"[Ball] Steal: player {thiefRef.PlayerId} <- player {CurrentHolder.Object.InputAuthority.PlayerId}");
+        AuthorityPickup(thief);
+    }
+
+    /**
+     * <summary>
+     * The holding player requests the ball be released (pass or shot).
+     * Passes PlayerRef to avoid the prefab-lookup crash.
+     * </summary>
+     * <param name="releaserRef">PlayerRef of the releasing player.</param>
+     * <param name="direction">Normalised world-space launch direction.</param>
+     * <param name="speed">Launch speed in m/s.</param>
+     */
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RPC_RequestRelease(PlayerRef releaserRef, Vector3 direction, float speed)
+    {
+        NetworkPlayer releaser = ResolvePlayer(releaserRef);
+        if (releaser == null || CurrentHolder != releaser) return;
+        AuthorityRelease(direction, speed);
+    }
+
+    /**
+     * <summary>
+     * Finds the NetworkPlayer whose InputAuthority matches the given PlayerRef.
+     * Only called on the state authority, so FindObjectsByType overhead is acceptable.
+     * </summary>
+     * <param name="playerRef">The PlayerRef to look up.</param>
+     * <returns>The matching NetworkPlayer, or null if not found.</returns>
+     */
+    private NetworkPlayer ResolvePlayer(PlayerRef playerRef)
+    {
+        foreach (var p in FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None))
+        {
+            if (p.Object != null && p.Object.InputAuthority == playerRef)
+                return p;
+        }
+        return null;
+    }
+
+    #endregion
+
+    #region Goal Handling
+
     private void OnTriggerEnter(Collider other)
     {
         if (!Object.HasStateAuthority) return;
-        
-        // Check for goal
+
         if (other.CompareTag("Goal"))
         {
             var goal = other.GetComponent<GoalTrigger>();
-            if (goal != null)
-            {
-                HandleGoal(goal.Team);
-            }
+            if (goal != null) HandleGoal(goal.Team);
         }
     }
 
     private void HandleGoal(int scoringTeam)
     {
-        Debug.Log($"GOAL! Team {scoringTeam} scored!");
-        
-        // Reset ball to center
-        transform.position = new Vector3(0, 0.5f, 0);
-        _rigidbody.linearVelocity = Vector3.zero;
+        Debug.Log($"[Ball] GOAL — team {scoringTeam} scored!");
+
         CurrentHolder = null;
-        
-        // Notify game manager
-        var gameManager = FindFirstObjectByType<GameManager>();
-        if (gameManager != null)
-        {
-            gameManager.OnGoalScored(scoringTeam);
-        }
+        transform.position = new Vector3(0f, 0.5f, 0f);
+        BallVelocity = Vector3.zero;
+        PickupCooldownTimer = TickTimer.CreateFromSeconds(Runner, 1.5f);
+
+        GameManager.Instance?.OnGoalScored(scoringTeam);
     }
 
-    /**
- * Draws debug gizmos in the editor for visualization
- */
+    #endregion
+
+    #region Editor Helpers
+
     private void OnDrawGizmos()
     {
-        // Only access networked properties when the object is spawned
-        if (Object == null || !Object.IsValid)
-            return;
-        
-        // Draw pickup range
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, 1.5f);
-    
-        // Draw possession indicator
-        if (IsHeld)
+        if (Object == null || !Object.IsValid) return;
+
+        Gizmos.color = IsHeld ? Color.yellow : Color.green;
+        Gizmos.DrawWireSphere(transform.position, 0.3f);
+
+        if (IsHeld && CurrentHolder != null)
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawLine(transform.position, CurrentHolder.transform.position);
         }
     }
 
+    #endregion
 }
-

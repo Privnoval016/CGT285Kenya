@@ -260,6 +260,7 @@ MonoBehaviour:
   runnerPrefab: {fileID: 0}
   gameSceneName: SampleScene
   gameMode: 2
+  sessionName: SoccerMatch
   maxPlayers: 6
 --- !u!4 &136901447
 Transform:
@@ -308,7 +309,6 @@ MonoBehaviour:
   movementJoystick: {fileID: 0}
   aimJoystick: {fileID: 0}
   useKeyboardInput: 1
-  inputSmoothing: 0.1
 --- !u!4 &236762367
 Transform:
   m_ObjectHideFlags: 0
@@ -1238,11 +1238,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c97409471a1a47ec9c87e06942a35a5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _scoreText: {fileID: 1939269819}
-  _timerText: {fileID: 1327182235}
-  _abilityCooldownImages: []
-  _abilityCooldownTexts: []
-  _connectionStatusText: {fileID: 665220443}
+  scoreText: {fileID: 1939269819}
+  timerText: {fileID: 1327182235}
+  abilityCooldownImage: {fileID: 0}
+  abilityCooldownText: {fileID: 0}
+  connectionStatusText: {fileID: 665220443}
 --- !u!114 &1926828708
 MonoBehaviour:
   m_ObjectHideFlags: 0

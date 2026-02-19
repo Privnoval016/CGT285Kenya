@@ -1,45 +1,55 @@
 using Fusion;
 using UnityEngine;
 
-/// <summary>
-/// NetworkInputData defines the input structure that gets sent over the network.
-/// In Fusion, input is gathered on the client, sent to the server, and then
-/// resimulated on all clients for prediction and reconciliation.
-/// 
-/// This struct MUST be blittable (no managed types) and implement INetworkInput.
-/// Size should be kept small as it's sent every tick (~60Hz).
-/// </summary>
+/**
+ * <summary>
+ * NetworkInputData defines the input structure sent over the network every tick.
+ * In Fusion, input is gathered on the client, sent to the server, and resimulated
+ * on all clients for prediction and reconciliation.
+ *
+ * IMPORTANT: This struct must be blittable (no managed types) and implement INetworkInput.
+ * Keep it small — it is sent at the simulation tick rate (~60 Hz).
+ *
+ * Shoot / pass design:
+ *   - AimInput magnitude > deadzone means the player is currently aiming.
+ *   - AimJustReleased == true means the aim stick was released THIS tick.
+ *   - AimHoldDuration >= threshold means it was a held shot; otherwise a pass.
+ *   - LastAimDirection holds the direction captured at the moment of release.
+ * </summary>
+ */
 public struct NetworkInputData : INetworkInput
 {
-    /** Movement joystick (left stick) */
+    /** Movement joystick (left stick) direction, normalised. */
     public Vector2 MovementInput;
-    
-    /** Aim joystick (right stick) - used for passing/shooting direction */
+
+    /** Aim joystick (right stick) direction, normalised. Non-zero while player is aiming. */
     public Vector2 AimInput;
-    
-    /** How long the aim joystick has been held */
+
+    /** Seconds the aim stick has been held continuously this sequence. */
     public float AimHoldDuration;
-    
-    /** True on the frame the aim stick was released (for shooting) */
+
+    /**
+     * True for exactly one tick — the tick on which the aim stick was released.
+     * InputController guarantees this is set at most once per press-release cycle.
+     */
     public NetworkBool AimJustReleased;
-    
-    /** Last aim direction before release (for shooting) */
+
+    /** The aim direction captured at the moment of release. */
     public Vector2 LastAimDirection;
-    
-    /** Action buttons */
+
+    /** Packed button bitmask (ability, etc.). */
     public NetworkButtons Buttons;
 }
 
 /**
+ * <summary>
  * Enum defining all possible button inputs.
- * These get packed into a bitmask by Fusion for efficiency.
+ * Values are packed into a bitmask by Fusion for wire efficiency.
+ * </summary>
  */
 public enum InputButton
 {
-    /** Primary action button - context sensitive (pickup/pass/shoot) */
-    Action = 0,
-    
-    /** Single ability button - player equips one ability per match */
-    Ability1 = 1,
+    /** Single ability button — player equips one ability per match. */
+    Ability1 = 0,
 }
 

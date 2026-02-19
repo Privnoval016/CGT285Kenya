@@ -153,22 +153,30 @@ public class GameUI : MonoBehaviour
     /**
      * <summary>
      * Updates the connection status display showing ping.
+     * Distinguishes between disconnected, connecting, and fully connected states.
      * </summary>
      */
     private void UpdateConnectionStatus()
     {
-        if (connectionStatusText != null)
+        if (connectionStatusText == null) return;
+
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner == null)
         {
-            var runner = FindFirstObjectByType<NetworkRunner>();
-            if (runner != null && runner.IsRunning)
-            {
-                connectionStatusText.text = $"Connected | Ping: {runner.GetPlayerRtt(runner.LocalPlayer) * 1000:F0}ms";
-            }
-            else
-            {
-                connectionStatusText.text = "Disconnected";
-            }
+            connectionStatusText.text = "Disconnected";
+            return;
         }
+
+        if (!runner.IsRunning)
+        {
+            connectionStatusText.text = "Connecting...";
+            return;
+        }
+
+        // Runner is running — show ping. GetPlayerRtt returns round-trip in seconds.
+        double rtt = runner.GetPlayerRtt(runner.LocalPlayer);
+        int pingMs = Mathf.RoundToInt((float)(rtt * 1000.0));
+        connectionStatusText.text = $"Connected | Ping: {pingMs}ms";
     }
 }
 

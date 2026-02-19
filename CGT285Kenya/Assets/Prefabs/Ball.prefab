@@ -154,10 +154,10 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 112
   m_CollisionDetection: 0
 --- !u!114 &1662069889200853484
 MonoBehaviour:
@@ -171,15 +171,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a08289cfeea4b198949a0596c9d9938, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _groundDrag: 2
-  _airDrag: 0.5
-  _maxSpeed: 25
-  _pickupCooldown: 0.5
-  _groundLayer:
+  groundDrag: 3.5
+  airDrag: 0.3
+  maxSpeed: 28
+  gravityStrength: 12
+  pickupCooldown: 0.4
+  holdForwardOffset: 0.9
+  groundLayer:
     serializedVersion: 2
-    m_Bits: 64
-  _groundCheckDistance: 0.2
+    m_Bits: 0
+  groundCheckDist: 0.15
   _CurrentHolder: {fileID: 0}
+  _BallVelocity: {x: 0, y: 0, z: 0}
 --- !u!114 &5943572717767208492
 MonoBehaviour:
   m_ObjectHideFlags: 0
