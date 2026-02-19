@@ -57,7 +57,20 @@ public class NetworkPlayer : NetworkBehaviour
      * Derived from ball.CurrentHolder to avoid cross-object authority writes.
      * </summary>
      */
-    public bool HasBall => ball != null && ball.Object.IsValid && ball.CurrentHolder == this;
+    public bool HasBall => Ball != null && Ball.Object.IsValid && Ball.CurrentHolder == this;
+
+    // Lazy accessor — re-searches the scene if the cached reference is null.
+    // The ball is spawned by the master client and may not exist yet when
+    // this player's Spawned() fires on a late-joining client.
+    private NetworkBallController Ball
+    {
+        get
+        {
+            if (ball == null)
+                ball = FindFirstObjectByType<NetworkBallController>();
+            return ball;
+        }
+    }
 
     private Vector3 moveDir;
     private float verticalVelocity;
@@ -90,6 +103,7 @@ public class NetworkPlayer : NetworkBehaviour
      */
     public override void Spawned()
     {
+        // Eagerly cache; Ball property will re-search lazily if this returns null.
         ball = FindFirstObjectByType<NetworkBallController>();
 
         if (Object.HasStateAuthority)
@@ -174,28 +188,29 @@ public class NetworkPlayer : NetworkBehaviour
 
     private void ProcessBallInteractions(NetworkInputData input)
     {
-        if (ball == null || !ball.Object.IsValid) return;
+        NetworkBallController b = Ball;
+        if (b == null || !b.Object.IsValid) return;
 
-        if (!HasBall && ball.IsAvailable)
+        if (!HasBall && b.IsAvailable)
         {
-            float dist = Vector3.Distance(transform.position, ball.transform.position);
+            float dist = Vector3.Distance(transform.position, b.transform.position);
             int tick = Runner.Tick;
             if (dist <= ballPickupRange && tick - lastPickupRpcTick > RpcResendInterval)
             {
                 lastPickupRpcTick = tick;
-                ball.RPC_RequestPickup(Object.InputAuthority);
+                b.RPC_RequestPickup(Object.InputAuthority);
             }
         }
 
         // Steal: fires when this player enters the space in front of the holder
         // (the steal zone is defined from the holder's perspective, not the thief's).
-        if (!HasBall && ball.IsHeld &&
-            ball.CurrentHolder != null && ball.CurrentHolder != this &&
-            ball.CurrentHolder.Team != Team)
+        if (!HasBall && b.IsHeld &&
+            b.CurrentHolder != null && b.CurrentHolder != this &&
+            b.CurrentHolder.Team != Team)
         {
-            Vector3 holderToThief = transform.position - ball.CurrentHolder.transform.position;
+            Vector3 holderToThief = transform.position - b.CurrentHolder.transform.position;
             float dist = holderToThief.magnitude;
-            float dot = Vector3.Dot(ball.CurrentHolder.transform.forward, holderToThief.normalized);
+            float dot = Vector3.Dot(b.CurrentHolder.transform.forward, holderToThief.normalized);
             int tick = Runner.Tick;
 
             if (dist <= ballStealRange && dot >= stealDotThreshold &&
@@ -203,7 +218,7 @@ public class NetworkPlayer : NetworkBehaviour
             {
                 lastStealRpcTick = tick;
                 Debug.Log($"[Player] Attempting steal — dist={dist:F2} dot={dot:F2}");
-                ball.RPC_RequestSteal(Object.InputAuthority);
+                b.RPC_RequestSteal(Object.InputAuthority);
             }
         }
 
@@ -231,12 +246,13 @@ public class NetworkPlayer : NetworkBehaviour
      */
     private void ReleaseBall(Vector3 direction, float speed)
     {
-        if (ball == null) return;
+        NetworkBallController b = Ball;
+        if (b == null) return;
 
-        if (ball.Object.HasStateAuthority)
-            ball.Release(direction, speed);
+        if (b.Object.HasStateAuthority)
+            b.Release(direction, speed);
         else
-            ball.RPC_RequestRelease(Object.InputAuthority, direction, speed);
+            b.RPC_RequestRelease(Object.InputAuthority, direction, speed);
     }
 
     #endregion

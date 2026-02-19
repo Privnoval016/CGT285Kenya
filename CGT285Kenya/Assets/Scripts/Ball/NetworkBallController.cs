@@ -261,7 +261,12 @@ public class NetworkBallController : NetworkBehaviour
         if (CurrentHolder == null) return;
         NetworkPlayer thief = ResolvePlayer(thiefRef);
         if (thief == null) return;
-        if (thief.Team == CurrentHolder.Team) return;
+
+        // Derive team from PlayerId (matches Spawned() assignment) rather than
+        // reading the [Networked] Team property, which may not have replicated yet.
+        int thiefTeam = thiefRef.PlayerId <= 2 ? 0 : 1;
+        int holderTeam = CurrentHolder.Object.InputAuthority.PlayerId <= 2 ? 0 : 1;
+        if (thiefTeam == holderTeam) return;
 
         Debug.Log($"[Ball] Steal: player {thiefRef.PlayerId} <- player {CurrentHolder.Object.InputAuthority.PlayerId}");
         AuthorityPickup(thief);
