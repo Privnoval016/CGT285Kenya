@@ -39,6 +39,13 @@ public struct NetworkInputData : INetworkInput
 
     /** Packed button bitmask (ability, etc.). */
     public NetworkButtons Buttons;
+
+    /**
+     * World-space tap position captured when an ability is activated.
+     * Used by ObstructionAbility to determine block placement.
+     * Vector3.zero means "no tap position this tick."
+     */
+    public Vector3 AbilityTapPosition;
 }
 
 /**

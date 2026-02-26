@@ -11,6 +11,13 @@ using Fusion.Sockets;
  */
 public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
 {
+    [Header("Ability Assignment")]
+    [Tooltip("Defines which ability each player slot receives. Assign the same config asset here and on the player prefab's AbilityController.")]
+    [SerializeField] private AbilityAssignmentConfig abilityConfig;
+
+    // No joinCount needed — we derive the ability index from player.PlayerId directly.
+    // PlayerId is globally unique and starts at 1, so (PlayerId - 1) is a stable 0-based index
+    // that is identical on every client, ensuring all peers agree on who gets which ability.
     /**
      * <summary>
      * Called when a player joins the session.
@@ -83,6 +90,22 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (spawnedPlayer != null)
             {
                 Debug.Log($"[NetworkCallback] Successfully spawned player object for Player {player.PlayerId} at {spawnPosition}");
+
+                // Assign ability based on PlayerId (0-based: PlayerId - 1).
+                // This is deterministic and identical on every client, so the master
+                // client's assignment always matches what non-authority peers expect.
+                if (abilityConfig != null)
+                {
+                    var netPlayer = spawnedPlayer.GetComponent<NetworkPlayer>();
+                    var ac = netPlayer != null ? netPlayer.GetComponent<AbilityController>() : null;
+                    if (ac != null)
+                    {
+                        int joinOrder    = player.PlayerId - 1;
+                        int abilityIndex = abilityConfig.GetAbilityIndex(joinOrder);
+                        ac.AssignAbility(abilityIndex);
+                        Debug.Log($"[NetworkCallback] Player {player.PlayerId} (joinOrder={joinOrder}) assigned ability index {abilityIndex}");
+                    }
+                }
             }
             else
             {

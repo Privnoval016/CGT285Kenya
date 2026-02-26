@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &1867902028899288959
+--- !u!1 &3286940185186712744
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,51 +8,49 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3561507889424166101}
-  - component: {fileID: 4324046561716997232}
-  - component: {fileID: 9111966659298523193}
-  - component: {fileID: 1213068392376120992}
-  - component: {fileID: 5248380465615713834}
-  - component: {fileID: 5660348054957709271}
-  - component: {fileID: 1662069889200853484}
-  - component: {fileID: 5943572717767208492}
-  m_Layer: 6
-  m_Name: Ball
-  m_TagString: Ball
+  - component: {fileID: 1857985860796706710}
+  - component: {fileID: 2257818583056743095}
+  - component: {fileID: 3200706983293806799}
+  - component: {fileID: 2713284388852128007}
+  - component: {fileID: 6461079842792982152}
+  - component: {fileID: 7353521776836142143}
+  m_Layer: 0
+  m_Name: Obstruction
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3561507889424166101
+--- !u!4 &1857985860796706710
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
+  m_GameObject: {fileID: 3286940185186712744}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
-  m_ConstrainProportionsScale: 1
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &4324046561716997232
+--- !u!33 &2257818583056743095
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &9111966659298523193
+  m_GameObject: {fileID: 3286940185186712744}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &3200706983293806799
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
+  m_GameObject: {fileID: 3286940185186712744}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -91,13 +89,13 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!135 &1213068392376120992
-SphereCollider:
+--- !u!65 &2713284388852128007
+BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
+  m_GameObject: {fileID: 3286940185186712744}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -106,100 +104,42 @@ SphereCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.5
+  m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &5248380465615713834
+--- !u!114 &6461079842792982152
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
+  m_GameObject: {fileID: 3286940185186712744}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  SortKey: 1771590980
+  SortKey: 4113706327
   ObjectInterest: 1
-  Flags: 524289
+  Flags: 262145
   NestedObjects: []
   NetworkedBehaviours:
-  - {fileID: 1662069889200853484}
-  - {fileID: 5943572717767208492}
+  - {fileID: 7353521776836142143}
   ForceRemoteRenderTimeframe: 0
---- !u!54 &5660348054957709271
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
-  serializedVersion: 4
-  m_Mass: 0.5
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 1
-  m_Interpolate: 0
-  m_Constraints: 112
-  m_CollisionDetection: 0
---- !u!114 &1662069889200853484
+--- !u!114 &7353521776836142143
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
+  m_GameObject: {fileID: 3286940185186712744}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3a08289cfeea4b198949a0596c9d9938, type: 3}
+  m_Script: {fileID: 11500000, guid: a95e49b581c047c18b8a2e27e7723285, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groundDrag: 3.5
-  airDrag: 0.3
-  maxSpeed: 28
-  gravityStrength: 12
-  pickupCooldown: 0.4
-  holdForwardOffset: 0.9
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 0
-  groundCheckDist: 0.15
-  ballRadius: 0.25
-  minFloorY: 0.25
-  clientSmoothSpeed: 25
-  _CurrentHolder: {fileID: 0}
-  _BallVelocity: {x: 0, y: 0, z: 0}
---- !u!114 &5943572717767208492
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1867902028899288959}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 158639473, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _stateAuthorityChangeErrorCorrectionDelta: 0
-  SyncScale: 0
-  SyncParent: 0
-  _autoAOIOverride: 1
-  DisableSharedModeInterpolation: 0
+  blockLifetime: 6
+  visual: {fileID: 0}

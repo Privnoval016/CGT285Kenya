@@ -14,6 +14,7 @@ public class NetworkRunnerHandler : MonoBehaviour
 {
     [Header("Runner Settings")]
     [SerializeField] private NetworkRunner runnerPrefab;
+    [SerializeField] private NetworkCallbackHandler networkCallbackHandler;
     
     [Header("Game Settings")]
     [SerializeField] private string gameSceneName = "SampleScene";
@@ -63,7 +64,7 @@ public class NetworkRunnerHandler : MonoBehaviour
             runnerInstance = go.AddComponent<NetworkRunner>();
         }
         
-        runnerInstance.AddCallbacks(gameObject.AddComponent<NetworkCallbackHandler>());
+        runnerInstance.AddCallbacks(networkCallbackHandler);
         
         var startGameArgs = new StartGameArgs()
         {
