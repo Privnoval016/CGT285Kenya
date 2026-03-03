@@ -18,14 +18,8 @@ using Fusion;
 public class TeleportBeacon : NetworkBehaviour
 {
     [Header("Beacon Visuals")]
-    [Tooltip("Optional visual mesh/renderer shown to all clients.")]
+    [Tooltip("Optional visual mesh/renderer shown to all clients while the beacon is active.")]
     [SerializeField] private GameObject visual;
-
-    [Tooltip("Particle effect played on teleport arrival.")]
-    [SerializeField] private ParticleSystem arrivalEffect;
-
-    [Tooltip("Particle effect played on beacon expiry without use.")]
-    [SerializeField] private ParticleSystem expiryEffect;
 
     #region Networked State
 
@@ -56,7 +50,7 @@ public class TeleportBeacon : NetworkBehaviour
         if (ExpiryTimer.Expired(Runner))
         {
             NotifyOwnerBeaconExpired();
-            PlayExpiryEffect();
+            AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.TeleportBeaconExpire, transform.position);
             Runner.Despawn(Object);
         }
     }
@@ -76,8 +70,6 @@ public class TeleportBeacon : NetworkBehaviour
     {
         if (!Object.HasStateAuthority) return;
         WasUsed = true;
-
-        if (arrivalEffect != null) arrivalEffect.Play();
 
         Runner.Despawn(Object);
     }
@@ -123,10 +115,6 @@ public class TeleportBeacon : NetworkBehaviour
         }
     }
 
-    private void PlayExpiryEffect()
-    {
-        if (expiryEffect != null) expiryEffect.Play();
-    }
 
     #endregion
 }

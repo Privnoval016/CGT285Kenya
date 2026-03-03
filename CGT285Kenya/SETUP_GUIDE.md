@@ -905,6 +905,118 @@ Before considering setup complete:
 
 ---
 
+## Phase N+1: Ability VFX & SFX Setup
+
+The FX system is **fully data-driven**. No code changes are needed to add or change sounds and particle effects — everything lives in one inspector-friendly `ScriptableObject` asset.
+
+---
+
+### Architecture Overview
+
+| Class | Type | Purpose |
+|---|---|---|
+| `AbilityFxEvent` | `enum` | Names every ability moment that can produce feedback |
+| `AbilityFxData` | `[Serializable]` class | Per-event audio + VFX settings (clip, volume, pitch range, VFX prefab, scale, Y offset) |
+| `AbilityFxLibrary` | `ScriptableObject` | A designer-editable list of `(event → FxData)` bindings |
+| `AbilityFxPlayer` | `NetworkBehaviour` | Scene singleton; receives RPCs and spawns FX locally on every client |
+
+**Network model:** FX are cosmetic only. When an ability fires, it calls `AbilityFxPlayer.Instance?.PlayFx(event, position)` on the InputAuthority client. `AbilityFxPlayer` sends a single `RPC_PlayFx` (All → All) with the int-cast event ID and world position. Every peer instantiates the VFX prefab locally and plays the audio via a temporary one-shot `AudioSource`. No `[Networked]` state is written — if a client joins late they simply miss past FX events, which is fine for cosmetics.
+
+---
+
+### Events Reference
+
+| Event | When it fires |
+|---|---|
+| `DashActivate` | The instant the dash starts |
+| `TeleportBeaconPlace` | When the beacon is placed on the field |
+| `TeleportArrive` | At the destination the moment the player teleports |
+| `TeleportBeaconExpire` | At the beacon's position when it auto-expires |
+| `EnlargeActivate` | When the player grows |
+| `EnlargeDeactivate` | When the enlarged state wears off |
+| `ObstructionPlace` | At the block position when it is placed |
+
+---
+
+### Step 1: Create the AbilityFxLibrary Asset
+
+1. In the **Project** window, right-click in `Assets/ScriptableObjects` (or wherever you keep assets)
+2. Choose **Create → Soccer → Ability FX Library**
+3. Name it `AbilityFxLibrary`
+
+---
+
+### Step 2: Populate the Library (Designer Workflow)
+
+1. Select the `AbilityFxLibrary` asset
+2. Expand the **Entries** list in the Inspector
+3. Click **+** to add a new entry
+4. For each entry:
+   - **Fx Event** — pick the event from the dropdown (e.g. `DashActivate`)
+   - Expand **Data** to reveal:
+     - **Sfx Clip** — drag an `AudioClip` from your project
+     - **Volume** — 0–1 scale
+     - **Pitch Min / Pitch Max** — randomised each play; keep range narrow (e.g. 0.9–1.1) for subtle variation
+     - **Vfx Prefab** — drag a particle-system or VFX Graph prefab *(must self-destroy, see note below)*
+     - **Vfx Scale** — uniform scale override (useful for reusing one prefab at different sizes)
+     - **Vfx Y Offset** — lifts the effect above the floor (e.g. `0.5` for ground-level bursts)
+
+> **Self-destroying VFX prefabs:** In the particle system's **Stop Action** set it to `Destroy`. The `AbilityFxPlayer` also adds a safety 10-second `Destroy` fallback so nothing leaks even if a prefab lacks its own cleanup.
+
+Repeat for every event you want to support. Events with no matching entry are silently skipped.
+
+---
+
+### Step 3: Add an AbilityFxPlayer to the Scene
+
+The `AbilityFxPlayer` is a `NetworkBehaviour`, so it needs a `NetworkObject` on the same GameObject.
+
+**Option A — Dedicated FxManager object (recommended)**
+1. Create an empty GameObject in the Hierarchy
+2. Name it `FxManager`
+3. Add Component → **Fusion → Network Object**
+   - Allow State Authority: Checked
+   - Destroy When State Authority Leaves: Unchecked
+4. Add Component → **Scripts → Ability Fx Player**
+5. In the Inspector on `AbilityFxPlayer`:
+   - **Fx Library** — drag the `AbilityFxLibrary` asset you created
+   - **Audio Source Template** — leave empty (one is auto-added at runtime) or assign an existing `AudioSource` on the object
+
+**Option B — Reuse the GameManager object**  
+If you prefer fewer scene objects, add `AbilityFxPlayer` alongside `GameManager` on the same GameObject. Both are `NetworkBehaviour`s and can share a single `NetworkObject`.
+
+**Register the prefab / object:**  
+If the `FxManager` is a *scene* object (placed directly in the scene, not spawned at runtime), Fusion discovers it automatically — no entry in the Network Prefab List is required. If you ever want it to be spawned dynamically, add it to the list just like the player and ball prefabs.
+
+---
+
+### Step 4: Verify the Singleton Is Reachable
+
+At runtime, abilities call `AbilityFxPlayer.Instance?.PlayFx(...)`. The `?` null-conditional means if `Instance` is not yet set (e.g. FxManager not spawned), nothing crashes — the FX simply doesn't play. You will see a warning in the console only if `fxLibrary` is null.
+
+To confirm it's working:
+1. Enter Play mode
+2. Open the Console
+3. Activate any ability
+4. You should NOT see `[AbilityFxPlayer] No AbilityFxLibrary assigned.`
+5. You SHOULD see the appropriate `[DashAbility]`, `[TeleportAbility]`, etc. log followed by the FX playing
+
+---
+
+### Step 5: Add FX to the Checklist
+
+Add these to the **Final Checklist**:
+
+- [ ] `AbilityFxLibrary` asset created and populated with at least placeholder entries
+- [ ] `FxManager` (or `GameManager`) has both `NetworkObject` and `AbilityFxPlayer` components
+- [ ] `AbilityFxPlayer.Fx Library` field points to the library asset
+- [ ] VFX prefabs (if any) have their Stop Action set to Destroy
+- [ ] Test: activate Dash → hear/see DashActivate FX on both clients
+
+---
+
 **You're ready to build an amazing multiplayer soccer game!** 🎮⚽
+
+
 
 

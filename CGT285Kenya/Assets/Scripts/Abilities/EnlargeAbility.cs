@@ -70,6 +70,8 @@ public class EnlargeAbility : AbilityBase
         // Ask state authority to set the EnlargeTimer on the player.
         context.Player.RPC_SetEnlarged(enlargeDuration);
 
+        AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.EnlargeActivate, context.Player.transform.position);
+
         StartCooldown();
         Debug.Log($"[EnlargeAbility] Enlarged for {enlargeDuration}s");
     }

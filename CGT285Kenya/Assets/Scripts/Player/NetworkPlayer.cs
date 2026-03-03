@@ -375,6 +375,7 @@ public class NetworkPlayer : NetworkBehaviour
         bool enlarged = IsEnlarged;
         if (enlarged == prevEnlarged) return;
 
+        bool wasEnlarged = prevEnlarged;
         prevEnlarged = enlarged;
 
         if (enlarged)
@@ -385,6 +386,11 @@ public class NetworkPlayer : NetworkBehaviour
         else
         {
             transform.localScale = baseScale;
+
+            // Only fire deactivate FX when we actually had the enlarge ability active
+            // and it naturally expired (not on first-spawn where prevEnlarged starts false).
+            if (wasEnlarged)
+                AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.EnlargeDeactivate, transform.position);
         }
     }
 

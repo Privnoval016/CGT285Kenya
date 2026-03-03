@@ -179,6 +179,8 @@ public class ObstructionAbility : AbilityBase
         Vector3 flatPos = new Vector3(position.x, 0.5f, position.z);
         context.Player.GetComponent<AbilityController>().RPC_SpawnObstructionBlock(flatPos);
 
+        AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.ObstructionPlace, flatPos);
+
         StartCooldown();
         Debug.Log($"[ObstructionAbility] Block placed at {flatPos}");
     }

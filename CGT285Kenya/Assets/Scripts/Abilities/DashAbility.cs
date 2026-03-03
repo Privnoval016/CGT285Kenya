@@ -118,6 +118,8 @@ public class DashAbility : AbilityBase
         isDashing = true;
         dashEndTime = context.Runner.SimulationTime + dashDuration;
 
+        AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.DashActivate, context.Player.transform.position);
+
         Debug.Log($"[DashAbility] Dash started — dir={dashDirection}, duration={dashDuration}s");
     }
 

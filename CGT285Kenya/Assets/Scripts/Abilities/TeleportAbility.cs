@@ -115,6 +115,9 @@ public class TeleportAbility : AbilityBase
             .RPC_SpawnBeacon(pos, rot, context.Player.Object.InputAuthority);
 
         beaconPlaced = true;
+
+        AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.TeleportBeaconPlace, pos);
+
         Debug.Log($"[TeleportAbility] Beacon placement requested at {pos}");
     }
 
@@ -148,6 +151,8 @@ public class TeleportAbility : AbilityBase
 
         beaconPlaced = false;
         activeBeacon = null;
+
+        AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.TeleportArrive, target);
 
         StartCooldown();
         Debug.Log($"[TeleportAbility] Teleported to {target}");
