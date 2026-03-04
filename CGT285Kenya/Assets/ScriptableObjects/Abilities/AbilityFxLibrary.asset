@@ -15,16 +15,61 @@ MonoBehaviour:
   entries:
   - fxEvent: 0
     data:
-      sfxClip: {fileID: 0}
+      sfxClip: {fileID: 8300000, guid: 29cd8bdc7a125334e987b7181258a7eb, type: 3}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 6424076732465889602, guid: 0849ffb1bfc76e042a96dcb8aea8f92a, type: 3}
+      vfxScale: 1
+      vfxYOffset: 0
+  - fxEvent: 1
+    data:
+      sfxClip: {fileID: 8300000, guid: b7a3ed2bbe98e3f4880fbfa1c6bbd56b, type: 3}
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
       vfxPrefab: {fileID: 0}
       vfxScale: 1
       vfxYOffset: 0
-  - fxEvent: 0
+  - fxEvent: 2
     data:
-      sfxClip: {fileID: 0}
+      sfxClip: {fileID: 8300000, guid: 71abf5067f1fa1743a2bd196a3f2a798, type: 3}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 0}
+      vfxScale: 1
+      vfxYOffset: 0
+  - fxEvent: 3
+    data:
+      sfxClip: {fileID: 8300000, guid: 34f279564c3db974aa804e2605f4b8c4, type: 3}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 0}
+      vfxScale: 1
+      vfxYOffset: 0
+  - fxEvent: 4
+    data:
+      sfxClip: {fileID: 8300000, guid: 41bfaf887562c064fa73d416763fecaa, type: 3}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 6262241374213919440, guid: 08cca6b766b1dc142a29e116c75e3b58, type: 3}
+      vfxScale: 1
+      vfxYOffset: 0
+  - fxEvent: 5
+    data:
+      sfxClip: {fileID: 8300000, guid: d768bc2098529234f9cf32880dc69e92, type: 3}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 0}
+      vfxScale: 1
+      vfxYOffset: 0
+  - fxEvent: 6
+    data:
+      sfxClip: {fileID: 8300000, guid: f23ad67ab4947fc4c9daa1422421a11e, type: 3}
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05

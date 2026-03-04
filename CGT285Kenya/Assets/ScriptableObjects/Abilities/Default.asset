@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Default
   m_EditorClassIdentifier: 
   abilities:
-  - rid: 364838351964471357
-  - rid: 364838351964471358
-  - rid: 364838351964471359
   - rid: 364838351964471360
+  - rid: 364838351964471359
+  - rid: 364838351964471358
+  - rid: 364838351964471357
   references:
     version: 2
     RefIds:
