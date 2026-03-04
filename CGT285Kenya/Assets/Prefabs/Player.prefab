@@ -98,17 +98,15 @@ MonoBehaviour:
   moveSpeed: 5
   rotationSpeed: 720
   gravity: 20
-  ballHoldPosition: {fileID: 0}
   ballPickupRange: 1.5
   ballStealRange: 1.2
+  stealDotThreshold: 0.65
   passSpeed: 10
   shotSpeed: 20
   shotChargeThreshold: 0.3
-  playerMaterial: {fileID: 2100000, guid: 7cbcf77b8ef304e4f8fb53237e34ed61, type: 2}
   team0Color: {r: 0, g: 0, b: 1, a: 1}
   team1Color: {r: 1, g: 0, b: 0, a: 1}
   visualMesh: {fileID: 4347001127200267675}
-  _HasBall: 0
   _Team: 0
 --- !u!114 &2764494919253014999
 MonoBehaviour:
@@ -122,13 +120,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b54857344dd48369e7604a1f62947ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  equippedAbility:
-    rid: -2
-  references:
-    version: 2
-    RefIds:
-    - rid: -2
-      type: {class: , ns: , asm: }
+  assignmentConfig: {fileID: 11400000, guid: 5d29f32f5fee340c38ded9648c39ba45, type: 2}
+  _AbilityIndex: 0
 --- !u!114 &-5903516572560228463
 MonoBehaviour:
   m_ObjectHideFlags: 0

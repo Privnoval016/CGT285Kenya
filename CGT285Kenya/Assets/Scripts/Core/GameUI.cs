@@ -114,11 +114,11 @@ public class GameUI : MonoBehaviour
     private void UpdateAbilityDisplay()
     {
         if (localAbilityController == null || abilityCooldownImage == null) 
-            return;
-        
-        float cooldown = localAbilityController.GetAbilityCooldown(0);
-        bool isReady = localAbilityController.IsAbilityReady(0);
-        var ability = localAbilityController.EquippedAbility;
+            return;     
+
+        float cooldown = localAbilityController.GetCooldownRemaining();
+        bool isReady = localAbilityController.IsAbilityReady();
+        var ability = localAbilityController.ActiveAbility;
         
         // Update fill amount
         if (isReady)

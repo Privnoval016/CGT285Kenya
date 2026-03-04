@@ -2,88 +2,172 @@ using UnityEngine;
 using Fusion;
 
 /**
- * AbilityBase is the abstract base class for all abilities.
- * Uses the Strategy Pattern to allow runtime polymorphism.
- * 
- * Design Pattern: Strategy Pattern
- * - Each ability is a concrete strategy implementing Execute()
- * - Abilities can be swapped at runtime
- * - Uses [SerializeReference] to allow inheritance in inspector
- * 
- * Key Features:
- * - Server-authoritative execution
- * - Built-in cooldown system
- * - Network synchronization through Fusion
+ * <summary>
+ * AbilityBase is the abstract base class for all player abilities.
+ *
+ * Design Patterns:
+ *   Strategy – each concrete subclass is a swappable strategy.
+ *   Template Method – TryExecute() calls the abstract Execute() hook.
+ *
+ * Network safety:
+ *   Cooldown is tracked via a Fusion TickTimer stored on the owning
+ *   AbilityController (a NetworkBehaviour), so it is replicated and
+ *   deterministic across all peers. AbilityBase itself is a plain C# class
+ *   and holds no [Networked] state of its own.
+ *
+ *   Execute() is only ever called on the client that has InputAuthority,
+ *   so side-effects (RPCs, spawns) are triggered exactly once.
+ * </summary>
  */
 [System.Serializable]
 public abstract class AbilityBase
 {
     [Header("Base Ability Settings")]
-    [SerializeField] protected string abilityName = "Unnamed Ability";
-    [SerializeField] protected float cooldownDuration = 5f;
-    [SerializeField] protected float energyCost = 20f;
+    [SerializeField] protected string abilityName    = "Unnamed Ability";
+    [SerializeField] protected float  cooldownDuration = 5f;
     [SerializeField] protected Sprite abilityIcon;
-    
-    protected NetworkPlayer Owner;
-    protected NetworkRunner Runner;
-    protected float LastUsedTime;
-    
-    public string AbilityName => abilityName;
-    public float CooldownDuration => cooldownDuration;
-    public float EnergyCost => energyCost;
-    public Sprite Icon => abilityIcon;
-    public bool IsOnCooldown => Time.time - LastUsedTime < cooldownDuration;
-    public float CooldownRemaining => Mathf.Max(0, cooldownDuration - (Time.time - LastUsedTime));
-    
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Runtime state — injected by AbilityController.Initialize()
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /** The controller that owns this ability; used to read/write the TickTimer. */
+    protected AbilityController Controller;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Public properties
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /** Display name shown in the UI. */
+    public string AbilityName      => abilityName;
+
+    /** Total cooldown length in seconds. */
+    public float  CooldownDuration => cooldownDuration;
+
+    /** Optional icon for the HUD. */
+    public Sprite Icon             => abilityIcon;
+
     /**
-     * Initializes the ability with its owner and runner context
+     * <summary>
+     * True when the ability cannot be used yet.
+     * Reads the TickTimer stored on the AbilityController so the value is
+     * always consistent with the networked simulation.
+     * </summary>
      */
-    public virtual void Initialize(NetworkPlayer owner, NetworkRunner runner)
+    public bool IsOnCooldown
     {
-        Owner = owner;
-        Runner = runner;
-        LastUsedTime = -cooldownDuration;
+        get
+        {
+            if (Controller == null || Controller.Runner == null) return false;
+            return !Controller.CooldownTimer.ExpiredOrNotRunning(Controller.Runner);
+        }
     }
-    
+
     /**
-     * Attempts to execute the ability.
-     * Checks cooldown and energy cost before executing.
+     * <summary>Remaining cooldown time in seconds (0 when ready).</summary>
      */
-    public bool TryExecute()
+    public float CooldownRemaining
+    {
+        get
+        {
+            if (Controller == null || Controller.Runner == null) return 0f;
+            return Controller.CooldownTimer.RemainingTime(Controller.Runner) ?? 0f;
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Lifecycle
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * <summary>
+     * Binds this ability to its owning AbilityController.
+     * Called by AbilityController.Spawned().
+     * </summary>
+     * <param name="controller">The NetworkBehaviour that owns this ability.</param>
+     */
+    public virtual void Initialize(AbilityController controller)
+    {
+        Controller = controller;
+    }
+
+    /**
+     * <summary>
+     * Attempts to execute the ability.
+     * Guards against cooldown before forwarding to Execute().
+     * </summary>
+     * <param name="context">Full runtime context for the ability.</param>
+     * <returns>True if execution succeeded.</returns>
+     */
+    public bool TryExecute(AbilityContext context)
     {
         if (IsOnCooldown)
         {
-            Debug.Log($"{abilityName} is on cooldown!");
+            Debug.Log($"[Ability] {abilityName} is on cooldown ({CooldownRemaining:F1}s)");
             return false;
         }
-        
-        Execute();
-        LastUsedTime = Time.time;
+
+        Execute(context);
         return true;
     }
-    
+
     /**
-     * The actual ability logic. Must be implemented by concrete abilities.
+     * <summary>
+     * Called when the ability button is pressed with a world-space position
+     * (used by Obstruction for targeting; all other abilities can ignore pos).
+     * The default forwards to the parameterless Execute overload.
+     * </summary>
+     * <param name="context">Full runtime context.</param>
+     * <param name="worldPosition">World-space position of the input tap (may be Vector3.zero).</param>
+     * <returns>True if execution succeeded.</returns>
      */
-    protected abstract void Execute();
-    
-    /**
-     * Called every frame to update ability state (e.g., channeling, effects)
-     */
-    public virtual void UpdateAbility()
+    public virtual bool TryExecuteAtPosition(AbilityContext context, Vector3 worldPosition)
     {
-        // Override in derived classes if needed
+        return TryExecute(context);
     }
-    
+
     /**
-     * Validates ability parameters in the editor
+     * <summary>
+     * Starts the cooldown timer.  Called by concrete abilities after their
+     * effect has been committed so that multi-stage abilities can start the
+     * cooldown at the correct moment.
+     * </summary>
+     */
+    protected void StartCooldown()
+    {
+        if (Controller != null && Controller.Runner != null)
+            Controller.SetCooldown(cooldownDuration);
+    }
+
+    /**
+     * <summary>
+     * Per-tick update hook. Called by AbilityController.FixedUpdateNetwork().
+     * Override to drive time-limited effects (dash movement, enlarge duration, etc.).
+     * </summary>
+     * <param name="context">Full runtime context.</param>
+     */
+    public virtual void TickAbility(AbilityContext context) { }
+
+    /**
+     * <summary>
+     * Validates serialized parameters inside the Unity editor.
+     * </summary>
      */
     public virtual void OnValidate()
     {
-        cooldownDuration = Mathf.Max(0, cooldownDuration);
-        energyCost = Mathf.Max(0, energyCost);
+        cooldownDuration = Mathf.Max(0f, cooldownDuration);
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Abstract hooks
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * <summary>
+     * Core ability logic implemented by each concrete subclass.
+     * Only called on the peer with InputAuthority.
+     * </summary>
+     * <param name="context">Full runtime context.</param>
+     */
+    protected abstract void Execute(AbilityContext context);
 }
-
-
-

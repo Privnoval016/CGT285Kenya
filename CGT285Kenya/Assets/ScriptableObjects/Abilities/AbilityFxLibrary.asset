@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92a75765a5f54d778f893b07578e361f, type: 3}
+  m_Name: AbilityFxLibrary
+  m_EditorClassIdentifier: 
+  entries:
+  - fxEvent: 0
+    data:
+      sfxClip: {fileID: 0}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 0}
+      vfxScale: 1
+      vfxYOffset: 0
+  - fxEvent: 0
+    data:
+      sfxClip: {fileID: 0}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 0}
+      vfxScale: 1
+      vfxYOffset: 0

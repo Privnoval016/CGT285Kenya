@@ -772,9 +772,108 @@ Assets/Scripts/
 │   ├── InputController.cs
 │   └── MobileJoystick.cs
 └── Abilities/
-    ├── AbilityBase.cs
-    └── AbilityController.cs
+    ├── AbilityBase.cs          — Abstract base (Strategy pattern)
+    ├── AbilityContext.cs       — Dependency injection struct
+    ├── AbilityController.cs    — NetworkBehaviour bridge; holds [Networked] CooldownTimer
+    ├── AbilityAssignmentConfig.cs — ScriptableObject: ordered ability list per player slot
+    ├── DashAbility.cs
+    ├── TeleportAbility.cs
+    ├── TeleportBeacon.cs       — Spawned NetworkObject
+    ├── EnlargeAbility.cs
+    ├── ObstructionAbility.cs
+    └── ObstructionBlock.cs     — Spawned NetworkObject
 ```
+
+---
+
+## Phase N: Ability System Setup
+
+### Step 1: Create the Ability Assignment Config
+
+1. In **Project**, right-click → **Create → Soccer → Ability Assignment Config**
+2. Name it `AbilityAssignmentConfig`
+3. In the Inspector, expand **Ordered Ability List** and add entries using the **+** button
+4. For each entry, click the type dropdown and choose one of:
+   - `DashAbility`
+   - `TeleportAbility`
+   - `EnlargeAbility`
+   - `ObstructionAbility`
+5. Expand each entry to tune its parameters (cooldown, duration, speeds, ranges, prefab references)
+
+**Assignment order:** Player 1 → index 0, Player 2 → index 1, etc. Wraps if there are fewer entries than players.
+
+### Step 2: Wire the Config to the Handler and Player
+
+1. Select the **NetworkCallbackHandler** component in the scene
+2. Drag `AbilityAssignmentConfig` into the **Ability Config** field
+3. Select the **Player Prefab** → find **AbilityController**
+4. Drag `AbilityAssignmentConfig` into **Assignment Config** on AbilityController
+
+### Step 3: Create the TeleportBeacon Prefab
+
+1. Create a GameObject, add a small sphere/disc mesh for the visual
+2. Add **NetworkObject** component
+3. Add **NetworkTransform** component
+4. Add **TeleportBeacon** component
+5. Wire the **Visual** field to the mesh child
+6. (Optional) Assign particle systems for arrival and expiry
+7. Drag into **Project** to make a prefab
+8. **Add to Fusion's Network Prefab List** (same as player/ball)
+9. Drag the prefab into the **Beacon Prefab** field on the `TeleportAbility` entry in the config
+
+### Step 4: Create the ObstructionBlock Prefab
+
+1. Create a GameObject, add a **Cube** child scaled to ~(1.5, 1.5, 1.5) for the visual
+2. Add **BoxCollider** to the root (Layer: Default so it blocks players and ball)
+3. Add **NetworkObject** component
+4. Add **NetworkTransform** component
+5. Add **ObstructionBlock** component; wire the **Visual** field
+6. Drag into **Project** to make a prefab
+7. **Add to Fusion's Network Prefab List**
+8. Drag the prefab into the **Block Prefab** field on the `ObstructionAbility` entry in the config
+
+### Step 5: Create the Range Indicator Prefab (Obstruction visual)
+
+1. Create a **Quad** or **Cylinder** scaled to `(1, 0.01, 1)` — it will be scaled to `(range*2, 1, range*2)` at runtime
+2. Assign a semi-transparent material (Albedo color with ~50% alpha, Rendering Mode: Transparent)
+3. Drag into **Project** as a prefab (does **not** need NetworkObject — it's client-only)
+4. Drag into **Range Indicator Prefab** field on the `ObstructionAbility` entry in the config
+
+### Step 6: Keyboard Controls for Abilities
+
+| Key | Action |
+|-----|--------|
+| Q | Activate ability (Dash / Teleport stage 1 or 2 / Enlarge / Obstruction enter/cancel targeting) |
+| Mouse Click | While Obstruction is in targeting mode, click on the field to place the block |
+
+For **Obstruction targeting** (keyboard): press Q to enter targeting, then left-click anywhere in the range circle to place the block. Pressing Q again while targeting cancels with a short cooldown penalty.
+
+### Step 7: Ability Behaviour Summary
+
+#### Dash
+- Press Q while moving → dash in movement direction at `dashSpeedMultiplier × baseSpeed` for `dashDuration` seconds
+- If standing still, dashes in the last known movement direction
+- Can pick up or steal the ball mid-dash
+- Cooldown starts **after** the dash finishes
+
+#### Teleport
+- First Q press → places a beacon at current position (no cooldown yet)
+- Second Q press → teleports to the beacon; beacon despawns; cooldown starts
+- If beacon expires before use (after `beaconLifetime` seconds) → beacon despawns, cooldown starts
+- Cancel by pressing Q when no beacon is placed (does nothing)
+
+#### Enlarge
+- Press Q → player grows to `enlargeScaleMultiplier × base scale` for `enlargeDuration` seconds
+- Ball steal/pickup radius × `enlargeInterceptMultiplier`
+- Shot charges faster: effective charge threshold ÷ `enlargeShotChargeMultiplier`
+- Cooldown starts immediately on activation
+
+#### Obstruction
+- First Q press → enters targeting mode (range circle visible only to you)
+- Left-click within range → places block at that position; cooldown starts
+- Second Q press while targeting → cancels; `cancelCooldown` applied
+- Block despawns after `blockLifetime` seconds **or** when a goal is scored
+- Block orientation is always axis-aligned (Quaternion.identity)
 
 ---
 
@@ -786,7 +885,11 @@ Before considering setup complete:
 - [ ] Scene in Build Settings
 - [ ] Player prefab created with all components
 - [ ] Ball prefab created with all components
+- [ ] TeleportBeacon prefab created and in Network Prefab List
+- [ ] ObstructionBlock prefab created and in Network Prefab List
 - [ ] Both prefabs in Network Prefab List ← CRITICAL!
+- [ ] AbilityAssignmentConfig created and wired to NetworkCallbackHandler and AbilityController
+- [ ] Ability sub-prefabs assigned in the config entries
 - [ ] GameManager in scene with prefabs assigned
 - [ ] NetworkRunnerHandler in scene
 - [ ] InputController in scene
@@ -796,14 +899,124 @@ Before considering setup complete:
 - [ ] Single player test passes
 - [ ] Two instance test passes (actual multiplayer!)
 - [ ] Ball pickup/pass/shoot works
-- [ ] Goals register correctly
+- [ ] Goals register correctly and clear obstruction blocks
+- [ ] All 4 abilities work as described
 - [ ] No errors in console
+
+---
+
+## Phase N+1: Ability VFX & SFX Setup
+
+The FX system is **fully data-driven**. No code changes are needed to add or change sounds and particle effects — everything lives in one inspector-friendly `ScriptableObject` asset.
+
+---
+
+### Architecture Overview
+
+| Class | Type | Purpose |
+|---|---|---|
+| `AbilityFxEvent` | `enum` | Names every ability moment that can produce feedback |
+| `AbilityFxData` | `[Serializable]` class | Per-event audio + VFX settings (clip, volume, pitch range, VFX prefab, scale, Y offset) |
+| `AbilityFxLibrary` | `ScriptableObject` | A designer-editable list of `(event → FxData)` bindings |
+| `AbilityFxPlayer` | `NetworkBehaviour` | Scene singleton; receives RPCs and spawns FX locally on every client |
+
+**Network model:** FX are cosmetic only. When an ability fires, it calls `AbilityFxPlayer.Instance?.PlayFx(event, position)` on the InputAuthority client. `AbilityFxPlayer` sends a single `RPC_PlayFx` (All → All) with the int-cast event ID and world position. Every peer instantiates the VFX prefab locally and plays the audio via a temporary one-shot `AudioSource`. No `[Networked]` state is written — if a client joins late they simply miss past FX events, which is fine for cosmetics.
+
+---
+
+### Events Reference
+
+| Event | When it fires |
+|---|---|
+| `DashActivate` | The instant the dash starts |
+| `TeleportBeaconPlace` | When the beacon is placed on the field |
+| `TeleportArrive` | At the destination the moment the player teleports |
+| `TeleportBeaconExpire` | At the beacon's position when it auto-expires |
+| `EnlargeActivate` | When the player grows |
+| `EnlargeDeactivate` | When the enlarged state wears off |
+| `ObstructionPlace` | At the block position when it is placed |
+
+---
+
+### Step 1: Create the AbilityFxLibrary Asset
+
+1. In the **Project** window, right-click in `Assets/ScriptableObjects` (or wherever you keep assets)
+2. Choose **Create → Soccer → Ability FX Library**
+3. Name it `AbilityFxLibrary`
+
+---
+
+### Step 2: Populate the Library (Designer Workflow)
+
+1. Select the `AbilityFxLibrary` asset
+2. Expand the **Entries** list in the Inspector
+3. Click **+** to add a new entry
+4. For each entry:
+   - **Fx Event** — pick the event from the dropdown (e.g. `DashActivate`)
+   - Expand **Data** to reveal:
+     - **Sfx Clip** — drag an `AudioClip` from your project
+     - **Volume** — 0–1 scale
+     - **Pitch Min / Pitch Max** — randomised each play; keep range narrow (e.g. 0.9–1.1) for subtle variation
+     - **Vfx Prefab** — drag a particle-system or VFX Graph prefab *(must self-destroy, see note below)*
+     - **Vfx Scale** — uniform scale override (useful for reusing one prefab at different sizes)
+     - **Vfx Y Offset** — lifts the effect above the floor (e.g. `0.5` for ground-level bursts)
+
+> **Self-destroying VFX prefabs:** In the particle system's **Stop Action** set it to `Destroy`. The `AbilityFxPlayer` also adds a safety 10-second `Destroy` fallback so nothing leaks even if a prefab lacks its own cleanup.
+
+Repeat for every event you want to support. Events with no matching entry are silently skipped.
+
+---
+
+### Step 3: Add an AbilityFxPlayer to the Scene
+
+The `AbilityFxPlayer` is a `NetworkBehaviour`, so it needs a `NetworkObject` on the same GameObject.
+
+**Option A — Dedicated FxManager object (recommended)**
+1. Create an empty GameObject in the Hierarchy
+2. Name it `FxManager`
+3. Add Component → **Fusion → Network Object**
+   - Allow State Authority: Checked
+   - Destroy When State Authority Leaves: Unchecked
+4. Add Component → **Scripts → Ability Fx Player**
+5. In the Inspector on `AbilityFxPlayer`:
+   - **Fx Library** — drag the `AbilityFxLibrary` asset you created
+   - **Audio Source Template** — leave empty (one is auto-added at runtime) or assign an existing `AudioSource` on the object
+
+**Option B — Reuse the GameManager object**  
+If you prefer fewer scene objects, add `AbilityFxPlayer` alongside `GameManager` on the same GameObject. Both are `NetworkBehaviour`s and can share a single `NetworkObject`.
+
+**Register the prefab / object:**  
+If the `FxManager` is a *scene* object (placed directly in the scene, not spawned at runtime), Fusion discovers it automatically — no entry in the Network Prefab List is required. If you ever want it to be spawned dynamically, add it to the list just like the player and ball prefabs.
+
+---
+
+### Step 4: Verify the Singleton Is Reachable
+
+At runtime, abilities call `AbilityFxPlayer.Instance?.PlayFx(...)`. The `?` null-conditional means if `Instance` is not yet set (e.g. FxManager not spawned), nothing crashes — the FX simply doesn't play. You will see a warning in the console only if `fxLibrary` is null.
+
+To confirm it's working:
+1. Enter Play mode
+2. Open the Console
+3. Activate any ability
+4. You should NOT see `[AbilityFxPlayer] No AbilityFxLibrary assigned.`
+5. You SHOULD see the appropriate `[DashAbility]`, `[TeleportAbility]`, etc. log followed by the FX playing
+
+---
+
+### Step 5: Add FX to the Checklist
+
+Add these to the **Final Checklist**:
+
+- [ ] `AbilityFxLibrary` asset created and populated with at least placeholder entries
+- [ ] `FxManager` (or `GameManager`) has both `NetworkObject` and `AbilityFxPlayer` components
+- [ ] `AbilityFxPlayer.Fx Library` field points to the library asset
+- [ ] VFX prefabs (if any) have their Stop Action set to Destroy
+- [ ] Test: activate Dash → hear/see DashActivate FX on both clients
 
 ---
 
 **You're ready to build an amazing multiplayer soccer game!** 🎮⚽
 
-The framework is solid, the architecture is clean, and everything is documented. Now add your unique features, polish the gameplay, and make it your own!
 
-Good luck! 🚀
+
 

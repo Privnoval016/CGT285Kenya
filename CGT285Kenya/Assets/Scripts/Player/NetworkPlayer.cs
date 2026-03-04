@@ -17,6 +17,11 @@ using Fusion;
  * Shoot / pass:
  *   Right-stick tap (hold less than shotChargeThreshold) → pass at passSpeed.
  *   Right-stick hold then release (hold >= shotChargeThreshold) → shot at shotSpeed.
+ *
+ * Ability integration:
+ *   DashAbility    — overrides movement direction and applies speed multiplier.
+ *   EnlargeAbility — scale, intercept radius, and shot-charge speed read from
+ *                    EnlargeTimer every tick; multipliers come from the ability.
  * </summary>
  */
 [RequireComponent(typeof(CharacterController))]
@@ -42,14 +47,44 @@ public class NetworkPlayer : NetworkBehaviour
     [SerializeField] private Color team1Color = Color.red;
     [SerializeField] private MeshRenderer visualMesh;
 
-    #region Components & State
+    #region Networked State
+
+    [Networked] public int Team { get; set; }
+
+    /**
+     * <summary>
+     * Tick-based timer that tracks how long the player remains enlarged.
+     * Written by RPC_SetEnlarged(); read each tick by ProcessEnlargeState().
+     * Replicated so all clients scale the visual correctly.
+     * </summary>
+     */
+    [Networked] public TickTimer EnlargeTimer { get; set; }
+
+    #endregion
+
+    #region Components & Local State
 
     private CharacterController cc;
     private NetworkBallController ball;
     private AbilityController abilityController;
     private Material materialInstance;
 
-    [Networked] public int Team { get; set; }
+    // Cached normal scale for restoring after enlarge expires.
+    private Vector3 baseScale;
+
+    private Vector3 moveDir;
+    private float verticalVelocity;
+    private int prevTeam = -1;
+    private bool prevEnlarged = false;
+
+    // Throttle RPC sends — only re-send pickup/steal every few ticks.
+    private int lastPickupRpcTick = -100;
+    private int lastStealRpcTick = -100;
+    private const int RpcResendInterval = 6;
+
+    #endregion
+
+    #region Derived Properties
 
     /**
      * <summary>
@@ -59,9 +94,25 @@ public class NetworkPlayer : NetworkBehaviour
      */
     public bool HasBall => Ball != null && Ball.Object.IsValid && Ball.CurrentHolder == this;
 
+    /**
+     * <summary>
+     * Last computed movement direction in world space.
+     * Exposed for DashAbility to read the current / last-known direction.
+     * </summary>
+     */
+    public Vector3 CurrentMoveDirection => moveDir;
+
+    /**
+     * <summary>
+     * True while the EnlargeTimer has not yet expired.
+     * </summary>
+     */
+    public bool IsEnlarged =>
+        Object != null && Object.IsValid &&
+        Runner != null &&
+        !EnlargeTimer.ExpiredOrNotRunning(Runner);
+
     // Lazy accessor — re-searches the scene if the cached reference is null.
-    // The ball is spawned by the master client and may not exist yet when
-    // this player's Spawned() fires on a late-joining client.
     private NetworkBallController Ball
     {
         get
@@ -72,15 +123,6 @@ public class NetworkPlayer : NetworkBehaviour
         }
     }
 
-    private Vector3 moveDir;
-    private float verticalVelocity;
-    private int prevTeam = -1;
-
-    // Throttle RPC sends — only re-send pickup/steal every few ticks.
-    private int lastPickupRpcTick = -100;
-    private int lastStealRpcTick = -100;
-    private const int RpcResendInterval = 6;
-
     #endregion
 
     #region Unity Lifecycle
@@ -89,6 +131,7 @@ public class NetworkPlayer : NetworkBehaviour
     {
         cc = GetComponent<CharacterController>();
         abilityController = GetComponent<AbilityController>();
+        baseScale = transform.localScale;
     }
 
     #endregion
@@ -103,7 +146,6 @@ public class NetworkPlayer : NetworkBehaviour
      */
     public override void Spawned()
     {
-        // Eagerly cache; Ball property will re-search lazily if this returns null.
         ball = FindFirstObjectByType<NetworkBallController>();
 
         if (Object.HasStateAuthority)
@@ -113,13 +155,14 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         prevTeam = Team;
+        baseScale = transform.localScale;
         SetupTeamColor();
     }
 
     /**
      * <summary>
      * Called every render frame. Used for cosmetic reactions to networked
-     * property changes (team color) without touching simulation state.
+     * property changes (team color, enlarge scale) without touching simulation state.
      * </summary>
      */
     public override void Render()
@@ -129,6 +172,8 @@ public class NetworkPlayer : NetworkBehaviour
             prevTeam = Team;
             SetupTeamColor();
         }
+
+        UpdateEnlargeVisual();
     }
 
     /**
@@ -155,7 +200,19 @@ public class NetworkPlayer : NetworkBehaviour
     {
         moveDir = new Vector3(input.MovementInput.x, 0f, input.MovementInput.y).normalized;
 
-        Vector3 move = moveDir * moveSpeed * Runner.DeltaTime;
+        // Dash overrides direction and multiplies speed.
+        float speedMultiplier = 1f;
+        if (abilityController != null)
+        {
+            var dash = abilityController.ActiveAbility as DashAbility;
+            if (dash != null && dash.IsDashing)
+            {
+                moveDir = dash.DashDirection;
+                speedMultiplier = dash.CurrentSpeedMultiplier;
+            }
+        }
+
+        Vector3 move = moveDir * moveSpeed * speedMultiplier * Runner.DeltaTime;
 
         if (cc.isGrounded)
             verticalVelocity = -2f;
@@ -191,11 +248,14 @@ public class NetworkPlayer : NetworkBehaviour
         NetworkBallController b = Ball;
         if (b == null || !b.Object.IsValid) return;
 
+        // Enlarge multiplies pickup and steal radii.
+        float interceptMult = GetInterceptMultiplier();
+
         if (!HasBall && b.IsAvailable)
         {
             float dist = Vector3.Distance(transform.position, b.transform.position);
             int tick = Runner.Tick;
-            if (dist <= ballPickupRange && tick - lastPickupRpcTick > RpcResendInterval)
+            if (dist <= ballPickupRange * interceptMult && tick - lastPickupRpcTick > RpcResendInterval)
             {
                 lastPickupRpcTick = tick;
                 b.RPC_RequestPickup(Object.InputAuthority);
@@ -213,7 +273,7 @@ public class NetworkPlayer : NetworkBehaviour
             float dot = Vector3.Dot(b.CurrentHolder.transform.forward, holderToThief.normalized);
             int tick = Runner.Tick;
 
-            if (dist <= ballStealRange && dot >= stealDotThreshold &&
+            if (dist <= ballStealRange * interceptMult && dot >= stealDotThreshold &&
                 tick - lastStealRpcTick > RpcResendInterval)
             {
                 lastStealRpcTick = tick;
@@ -224,7 +284,10 @@ public class NetworkPlayer : NetworkBehaviour
 
         if (HasBall && input.AimJustReleased && input.LastAimDirection.magnitude > 0.1f)
         {
-            bool isShot = input.AimHoldDuration >= shotChargeThreshold;
+            // Enlarge speeds up shot charge; same threshold but charge feels faster
+            // because EnlargeAbility reduces the effective threshold.
+            float effectiveChargeThreshold = shotChargeThreshold / GetShotChargeMultiplier();
+            bool isShot = input.AimHoldDuration >= effectiveChargeThreshold;
             float speed = isShot ? shotSpeed : passSpeed;
             Vector3 dir = new Vector3(
                 input.LastAimDirection.x, 0f, input.LastAimDirection.y).normalized;
@@ -263,8 +326,106 @@ public class NetworkPlayer : NetworkBehaviour
     {
         if (abilityController == null) return;
 
-        if (input.Buttons.IsSet(InputButton.Ability1))
-            abilityController.ExecuteAbility(0);
+        bool buttonPressed = input.Buttons.IsSet(InputButton.Ability1);
+        bool hasTap = input.AbilityTapPosition != Vector3.zero;
+
+        if (buttonPressed)
+        {
+            // Q press: enter/exit targeting (or activate non-targeting abilities).
+            // Pass tap position too in case button + tap arrive the same tick.
+            abilityController.TryUseAbility(input.AbilityTapPosition);
+        }
+        else if (hasTap)
+        {
+            // Bare tap with no button — this is an Obstruction placement confirmation.
+            // TryExecuteAtPosition on the ability will only act if IsTargeting is true,
+            // so it is safe to call on every ability type without side-effects.
+            abilityController.TryUseAbility(input.AbilityTapPosition);
+        }
+    }
+
+    #endregion
+
+    #region Enlarge Support
+
+    /**
+     * <summary>
+     * Sets the enlarge timer on this player.
+     * Routed to StateAuthority because [Networked] EnlargeTimer can only be
+     * written on the object's state authority, which is the owning client in
+     * Fusion Shared Mode.
+     * </summary>
+     * <param name="duration">How many seconds to stay enlarged.</param>
+     */
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_SetEnlarged(float duration)
+    {
+        EnlargeTimer = TickTimer.CreateFromSeconds(Runner, duration);
+        Debug.Log($"[Player] EnlargeTimer set to {duration}s");
+    }
+
+    /**
+     * <summary>
+     * Updates the visual scale based on EnlargeTimer.
+     * Called in Render() so it's cosmetic and never affects the simulation.
+     * </summary>
+     */
+    private void UpdateEnlargeVisual()
+    {
+        bool enlarged = IsEnlarged;
+        if (enlarged == prevEnlarged) return;
+
+        bool wasEnlarged = prevEnlarged;
+        prevEnlarged = enlarged;
+
+        if (enlarged)
+        {
+            float scale = GetEnlargeScaleMultiplier();
+            transform.localScale = baseScale * scale;
+        }
+        else
+        {
+            transform.localScale = baseScale;
+
+            // Only fire deactivate FX when we actually had the enlarge ability active
+            // and it naturally expired (not on first-spawn where prevEnlarged starts false).
+            if (wasEnlarged)
+                AbilityFxPlayer.Instance?.PlayFx(AbilityFxEvent.EnlargeDeactivate, transform.position);
+        }
+    }
+
+    /**
+     * <summary>
+     * Returns the intercept radius multiplier from the active enlarge ability,
+     * or 1.0 if not enlarged or a different ability is equipped.
+     * </summary>
+     * <returns>Intercept radius multiplier.</returns>
+     */
+    private float GetInterceptMultiplier()
+    {
+        if (!IsEnlarged) return 1f;
+        var enlarge = abilityController?.ActiveAbility as EnlargeAbility;
+        return enlarge?.InterceptMultiplier ?? 1f;
+    }
+
+    /**
+     * <summary>
+     * Returns the shot charge speed multiplier from the active enlarge ability,
+     * or 1.0 if not enlarged.
+     * </summary>
+     * <returns>Shot charge speed multiplier.</returns>
+     */
+    private float GetShotChargeMultiplier()
+    {
+        if (!IsEnlarged) return 1f;
+        var enlarge = abilityController?.ActiveAbility as EnlargeAbility;
+        return enlarge?.ShotChargeMultiplier ?? 1f;
+    }
+
+    private float GetEnlargeScaleMultiplier()
+    {
+        var enlarge = abilityController?.ActiveAbility as EnlargeAbility;
+        return enlarge?.ScaleMultiplier ?? 1f;
     }
 
     #endregion

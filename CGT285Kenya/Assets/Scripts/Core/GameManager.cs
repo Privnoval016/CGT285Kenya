@@ -107,6 +107,9 @@ public class GameManager : NetworkBehaviour
             Team0Score++;
             Debug.Log($"Team 0 scores! Score is now {Team0Score} - {Team1Score}");
         }
+
+        // Remove all obstruction blocks as specified — blocks are cleared on goal.
+        ObstructionBlock.DespawnAll(Runner);
     }
 
     private void SpawnBall()

@@ -10,18 +10,28 @@ using Fusion;
  *   route through RPCs targeting StateAuthority so writes always happen on the
  *   correct peer.
  *
- *   HasBall is not stored on the player. Each NetworkPlayer reads
- *   (ball.CurrentHolder == this) — consistent because CurrentHolder is
- *   [Networked] and readable by all clients.
- *
  * Physics model:
  *   The Rigidbody is permanently kinematic. Position is integrated manually
  *   using [Networked] BallVelocity. NetworkTransform handles interpolation
  *   on non-authority clients.
  *
+ * Collider — IsTrigger = true:
+ *   The SphereCollider MUST be set to IsTrigger on the prefab.
+ *   This prevents CharacterController from physically colliding with the ball
+ *   (which causes the player to fly during a dash or normal movement).
+ *   All pickup, steal, and goal detection is done in code via distance checks
+ *   and OnTriggerEnter, so physics collision is not needed.
+ *
+ * Client-side visual smoothing:
+ *   Non-authority clients receive ball state updates every network tick.
+ *   Between ticks the Render() method extrapolates the visual position using
+ *   the replicated BallVelocity, so the ball appears to move smoothly without
+ *   waiting for the next snapshot.  When held, it snaps to the expected hold
+ *   position computed from the replicated holder transform.
+ *
  * Prefab requirements:
  *   Rigidbody (isKinematic=true, useGravity=false, freeze rotation),
- *   NetworkObject, NetworkTransform, SphereCollider.
+ *   NetworkObject, NetworkTransform, SphereCollider (IsTrigger=TRUE).
  * </summary>
  */
 [RequireComponent(typeof(Rigidbody))]
@@ -46,6 +56,7 @@ public class NetworkBallController : NetworkBehaviour
     #region Components & Networked State
 
     private Rigidbody rb;
+    private SphereCollider sphereCollider;
 
     /** The player currently holding the ball, or null when free. */
     [Networked] public NetworkPlayer CurrentHolder { get; private set; }
@@ -54,6 +65,10 @@ public class NetworkBallController : NetworkBehaviour
     [Networked] public Vector3 BallVelocity { get; private set; }
 
     [Networked] private TickTimer PickupCooldownTimer { get; set; }
+
+    // Replicated simulation position (written by state authority each tick).
+    // Non-authority clients use this as the base for extrapolation.
+    [Networked] private Vector3 SimPosition { get; set; }
 
     #endregion
 
@@ -79,18 +94,26 @@ public class NetworkBallController : NetworkBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        rb.isKinematic = true;
-        rb.useGravity = false;
+        rb.isKinematic  = true;
+        rb.useGravity   = false;
         rb.freezeRotation = true;
+
+        sphereCollider = GetComponent<SphereCollider>();
+        // Ball MUST be a trigger so CharacterControllers pass through it.
+        // All interaction (pickup, steal, goal) is detected in code.
+        if (sphereCollider != null)
+            sphereCollider.isTrigger = true;
     }
 
     public override void Spawned()
     {
         if (Object.HasStateAuthority)
         {
-            transform.position = new Vector3(0f, 0.5f, 0f);
-            BallVelocity = Vector3.zero;
-            CurrentHolder = null;
+            Vector3 start = new Vector3(0f, minFloorY, 0f);
+            transform.position = start;
+            SimPosition    = start;
+            BallVelocity   = Vector3.zero;
+            CurrentHolder  = null;
         }
     }
 
@@ -106,13 +129,60 @@ public class NetworkBallController : NetworkBehaviour
             TickHeld();
         else
             TickFree();
+
+        // Write the authoritative position into the replicated SimPosition so
+        // non-authority clients can use it as an extrapolation base.
+        SimPosition = transform.position;
+    }
+
+    /**
+     * <summary>
+     * Visual update for non-authority clients.
+     *
+     * Held ball:
+     *   Snaps directly to the exact expected hold position computed from the
+     *   holder's current rendered transform every frame. No smoothing is applied
+     *   because the holder's NetworkTransform already handles interpolation — any
+     *   additional smoothing on the ball only adds lag on top of lag.
+     *
+     * Free ball:
+     *   Linearly extrapolates between the last two authoritative SimPosition
+     *   snapshots using Runner.InterpolationFactor (0→1 across one tick interval).
+     *   This fills the inter-tick gap so the ball moves at the correct speed
+     *   between server updates without waiting for the next packet.
+     * </summary>
+     */
+    public override void Render()
+    {
+        if (Object.HasStateAuthority) return;
+
+        if (IsHeld && CurrentHolder != null)
+        {
+            // Direct snap — no MoveTowards. The holder is already interpolated by
+            // Fusion's NetworkTransform, so chaining a smooth here only adds delay.
+            Vector3 target = CurrentHolder.transform.position
+                + CurrentHolder.transform.forward * holdForwardOffset;
+            target.y = CurrentHolder.transform.position.y + 0.1f;
+            transform.position = target;
+        }
+        else
+        {
+            // Inter-tick linear extrapolation.
+            // Alpha is how far we are through the current tick interval (0→1),
+            // computed from the real frame delta vs the fixed sim delta.
+            float alpha = Mathf.Clamp01(Time.deltaTime / Runner.DeltaTime);
+            Vector3 extrapolated = SimPosition + BallVelocity * (Runner.DeltaTime * alpha);
+
+            if (extrapolated.y < minFloorY)
+                extrapolated.y = minFloorY;
+
+            transform.position = extrapolated;
+        }
     }
 
     /**
      * <summary>
      * Snaps the ball to the hold position in front of the current holder.
-     * Computed from the holder's transform on the authority peer so no
-     * cross-object [Networked] write is needed.
      * </summary>
      */
     private void TickHeld()
@@ -131,16 +201,12 @@ public class NetworkBallController : NetworkBehaviour
      * <summary>
      * Manually integrates BallVelocity with drag and gravity.
      * Deterministic because it uses Runner.DeltaTime (fixed tick delta).
-     * Uses a SphereCast so ground detection works even when the LayerMask is
-     * not configured — falls back to a hard floor clamp at minFloorY.
      * </summary>
      */
     private void TickFree()
     {
         float dt = Runner.DeltaTime;
 
-        // SphereCast downward from ball centre. Works even if groundLayer = 0
-        // because the hard floor clamp below acts as a last-resort safety net.
         bool grounded = Physics.SphereCast(
             transform.position,
             ballRadius,
@@ -184,7 +250,6 @@ public class NetworkBallController : NetworkBehaviour
 
         transform.position += BallVelocity * dt;
 
-        // Belt-and-suspenders floor clamp after position integration.
         if (transform.position.y < minFloorY)
         {
             Vector3 p = transform.position;
@@ -202,14 +267,14 @@ public class NetworkBallController : NetworkBehaviour
     private void AuthorityPickup(NetworkPlayer picker)
     {
         CurrentHolder = picker;
-        BallVelocity = Vector3.zero;
+        BallVelocity  = Vector3.zero;
         Debug.Log($"[Ball] Pickup by player {picker.Object.InputAuthority.PlayerId}");
     }
 
     private void AuthorityRelease(Vector3 direction, float speed)
     {
         CurrentHolder = null;
-        BallVelocity = direction.normalized * speed;
+        BallVelocity  = direction.normalized * speed;
         PickupCooldownTimer = TickTimer.CreateFromSeconds(Runner, pickupCooldown);
         Debug.Log($"[Ball] Released speed={speed:F1} dir={direction}");
     }
@@ -217,7 +282,6 @@ public class NetworkBallController : NetworkBehaviour
     /**
      * <summary>
      * Direct release — only valid when this client IS the state authority.
-     * NetworkPlayer calls this path when ball.Object.HasStateAuthority is true.
      * </summary>
      * <param name="direction">Normalised world-space direction.</param>
      * <param name="speed">Launch speed in m/s.</param>
@@ -235,7 +299,6 @@ public class NetworkBallController : NetworkBehaviour
     /**
      * <summary>
      * Any client can request to pick up a free ball.
-     * Passes PlayerRef (a blittable int) to avoid Fusion's prefab-lookup path.
      * </summary>
      * <param name="pickerRef">PlayerRef of the requesting player.</param>
      */
@@ -251,7 +314,6 @@ public class NetworkBallController : NetworkBehaviour
     /**
      * <summary>
      * Any client can request to steal the ball from the current holder.
-     * Passes PlayerRef to avoid the prefab-lookup crash when passing NetworkBehaviour refs.
      * </summary>
      * <param name="thiefRef">PlayerRef of the stealing player.</param>
      */
@@ -262,9 +324,7 @@ public class NetworkBallController : NetworkBehaviour
         NetworkPlayer thief = ResolvePlayer(thiefRef);
         if (thief == null) return;
 
-        // Derive team from PlayerId (matches Spawned() assignment) rather than
-        // reading the [Networked] Team property, which may not have replicated yet.
-        int thiefTeam = thiefRef.PlayerId <= 2 ? 0 : 1;
+        int thiefTeam  = thiefRef.PlayerId <= 2 ? 0 : 1;
         int holderTeam = CurrentHolder.Object.InputAuthority.PlayerId <= 2 ? 0 : 1;
         if (thiefTeam == holderTeam) return;
 
@@ -275,7 +335,6 @@ public class NetworkBallController : NetworkBehaviour
     /**
      * <summary>
      * The holding player requests the ball be released (pass or shot).
-     * Passes PlayerRef to avoid the prefab-lookup crash.
      * </summary>
      * <param name="releaserRef">PlayerRef of the releasing player.</param>
      * <param name="direction">Normalised world-space launch direction.</param>
@@ -292,7 +351,6 @@ public class NetworkBallController : NetworkBehaviour
     /**
      * <summary>
      * Finds the NetworkPlayer whose InputAuthority matches the given PlayerRef.
-     * Only called on the state authority, so FindObjectsByType overhead is acceptable.
      * </summary>
      * <param name="playerRef">The PlayerRef to look up.</param>
      * <returns>The matching NetworkPlayer, or null if not found.</returns>
@@ -327,8 +385,10 @@ public class NetworkBallController : NetworkBehaviour
         Debug.Log($"[Ball] GOAL — team {scoringTeam} scored!");
 
         CurrentHolder = null;
-        transform.position = new Vector3(0f, 0.5f, 0f);
-        BallVelocity = Vector3.zero;
+        Vector3 center = new Vector3(0f, minFloorY, 0f);
+        transform.position = center;
+        SimPosition    = center;
+        BallVelocity   = Vector3.zero;
         PickupCooldownTimer = TickTimer.CreateFromSeconds(Runner, 1.5f);
 
         GameManager.Instance?.OnGoalScored(scoringTeam);
