@@ -19,7 +19,7 @@ MonoBehaviour:
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
-      vfxPrefab: {fileID: 6424076732465889602, guid: 0849ffb1bfc76e042a96dcb8aea8f92a, type: 3}
+      vfxPrefab: {fileID: 2020661361868494885, guid: 895c6d094b6b213418cddcfb520298e9, type: 3}
       vfxScale: 1
       vfxYOffset: 0
   - fxEvent: 1
@@ -28,8 +28,8 @@ MonoBehaviour:
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
-      vfxPrefab: {fileID: 0}
-      vfxScale: 1
+      vfxPrefab: {fileID: 8176850701479282271, guid: b219c04f384e7f345bb8ae1fef443965, type: 3}
+      vfxScale: 0.5
       vfxYOffset: 0
   - fxEvent: 2
     data:
@@ -37,8 +37,8 @@ MonoBehaviour:
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
-      vfxPrefab: {fileID: 0}
-      vfxScale: 1
+      vfxPrefab: {fileID: 8176850701479282271, guid: b219c04f384e7f345bb8ae1fef443965, type: 3}
+      vfxScale: 0.7
       vfxYOffset: 0
   - fxEvent: 3
     data:
@@ -46,8 +46,8 @@ MonoBehaviour:
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
-      vfxPrefab: {fileID: 0}
-      vfxScale: 1
+      vfxPrefab: {fileID: 4035903591278710484, guid: aa122f157eac1c8428ae5db8a315ccd8, type: 3}
+      vfxScale: 0.5
       vfxYOffset: 0
   - fxEvent: 4
     data:
@@ -55,7 +55,7 @@ MonoBehaviour:
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
-      vfxPrefab: {fileID: 6262241374213919440, guid: 08cca6b766b1dc142a29e116c75e3b58, type: 3}
+      vfxPrefab: {fileID: 8680598818964007281, guid: dcd90c4976197424b9958a7c54b6bb8c, type: 3}
       vfxScale: 1
       vfxYOffset: 0
   - fxEvent: 5
@@ -64,7 +64,7 @@ MonoBehaviour:
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
-      vfxPrefab: {fileID: 0}
+      vfxPrefab: {fileID: 2020661361868494885, guid: 895c6d094b6b213418cddcfb520298e9, type: 3}
       vfxScale: 1
       vfxYOffset: 0
   - fxEvent: 6
@@ -73,6 +73,6 @@ MonoBehaviour:
       volume: 1
       pitchMin: 0.95
       pitchMax: 1.05
-      vfxPrefab: {fileID: 0}
+      vfxPrefab: {fileID: 2020661361868494885, guid: 895c6d094b6b213418cddcfb520298e9, type: 3}
       vfxScale: 1
       vfxYOffset: 0

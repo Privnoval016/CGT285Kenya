@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Default
   m_EditorClassIdentifier: 
   abilities:
-  - rid: 364838351964471360
-  - rid: 364838351964471359
-  - rid: 364838351964471358
   - rid: 364838351964471357
+  - rid: 364838351964471360
+  - rid: 364838351964471358
+  - rid: 364838351964471359
   references:
     version: 2
     RefIds:
@@ -38,7 +38,7 @@ MonoBehaviour:
         enlargeDuration: 5
         enlargeScaleMultiplier: 1.8
         enlargeInterceptMultiplier: 1.6
-        enlargeShotChargeMultiplier: 1.75
+        enlargeShotChargeMultiplier: 1.5
     - rid: 364838351964471359
       type: {class: ObstructionAbility, ns: , asm: Assembly-CSharp}
       data:
@@ -55,5 +55,5 @@ MonoBehaviour:
         abilityName: Super Teleport
         cooldownDuration: 5
         abilityIcon: {fileID: 0}
-        beaconLifetime: 10
+        beaconLifetime: 6
         beaconPrefab: {fileID: 6468922733072808544, guid: eddd9b94a92d441c19c3cbeb05cbf6de, type: 3}
