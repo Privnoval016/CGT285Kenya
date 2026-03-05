@@ -13,15 +13,6 @@ MonoBehaviour:
   m_Name: AbilityFxLibrary
   m_EditorClassIdentifier: 
   entries:
-  - fxEvent: 0
-    data:
-      sfxClip: {fileID: 8300000, guid: 29cd8bdc7a125334e987b7181258a7eb, type: 3}
-      volume: 1
-      pitchMin: 0.95
-      pitchMax: 1.05
-      vfxPrefab: {fileID: 2020661361868494885, guid: 895c6d094b6b213418cddcfb520298e9, type: 3}
-      vfxScale: 1
-      vfxYOffset: 0
   - fxEvent: 1
     data:
       sfxClip: {fileID: 8300000, guid: b7a3ed2bbe98e3f4880fbfa1c6bbd56b, type: 3}
@@ -31,6 +22,15 @@ MonoBehaviour:
       vfxPrefab: {fileID: 8176850701479282271, guid: b219c04f384e7f345bb8ae1fef443965, type: 3}
       vfxScale: 0.5
       vfxYOffset: 0
+  - fxEvent: 0
+    data:
+      sfxClip: {fileID: 8300000, guid: 29cd8bdc7a125334e987b7181258a7eb, type: 3}
+      volume: 1
+      pitchMin: 0.95
+      pitchMax: 1.05
+      vfxPrefab: {fileID: 2020661361868494885, guid: 895c6d094b6b213418cddcfb520298e9, type: 3}
+      vfxScale: 1
+      vfxYOffset: 1.5
   - fxEvent: 2
     data:
       sfxClip: {fileID: 8300000, guid: 71abf5067f1fa1743a2bd196a3f2a798, type: 3}
