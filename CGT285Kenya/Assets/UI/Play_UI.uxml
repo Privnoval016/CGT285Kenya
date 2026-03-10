@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement style="flex-grow: 1;">
+        <ui:VisualElement name="Container" style="flex-grow: 1; width: 548px; justify-content: flex-end; align-items: center; margin-top: 0; margin-right: 15%; margin-bottom: 0; margin-left: 15%; align-self: center; height: 100px;">
+            <ui:Button text="Play" style="width: 268px;" />
+            <ui:Button text="Enlarge" emoji-fallback-support="false" style="-unity-text-align: middle-center; white-space: nowrap; left: 250px; bottom: -84px; width: 110px;" />
+            <ui:Button text="Teleport" emoji-fallback-support="false" style="-unity-text-align: middle-center; white-space: nowrap; left: 85px; bottom: -40px; width: 110px;" />
+            <ui:Button text="Obstruction" emoji-fallback-support="false" name="Button" style="-unity-text-align: middle-center; white-space: nowrap; left: -85px; bottom: 5px; align-items: auto; justify-content: flex-start; align-self: center; width: 110px;" />
+            <ui:Button text="Dash" emoji-fallback-support="false" style="-unity-text-align: middle-center; white-space: nowrap; left: -250px; bottom: 48px; width: 110px;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
