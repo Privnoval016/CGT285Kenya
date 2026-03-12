@@ -1,11 +1,12 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI/Button.uss?fileID=7433441132597879392&amp;guid=d260e77d6871a0b4da378b81e77dfe25&amp;type=3#Button" />
     <ui:VisualElement style="flex-grow: 1;">
         <ui:VisualElement name="Container" style="flex-grow: 1; width: 548px; justify-content: flex-end; align-items: center; margin-top: 0; margin-right: 15%; margin-bottom: 0; margin-left: 15%; align-self: center; height: 100px;">
-            <ui:Button text="Play" style="width: 268px;" />
-            <ui:Button text="Enlarge" emoji-fallback-support="false" style="-unity-text-align: middle-center; white-space: nowrap; left: 250px; bottom: -84px; width: 110px;" />
-            <ui:Button text="Teleport" emoji-fallback-support="false" style="-unity-text-align: middle-center; white-space: nowrap; left: 85px; bottom: -40px; width: 110px;" />
-            <ui:Button text="Obstruction" emoji-fallback-support="false" name="Button" style="-unity-text-align: middle-center; white-space: nowrap; left: -85px; bottom: 5px; align-items: auto; justify-content: flex-start; align-self: center; width: 110px;" />
-            <ui:Button text="Dash" emoji-fallback-support="false" style="-unity-text-align: middle-center; white-space: nowrap; left: -250px; bottom: 48px; width: 110px;" />
+            <ui:Button text="Play" class="PlayButton" style="width: 268px;" />
+            <ui:Button text="Enlarge" emoji-fallback-support="false" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: 250px; bottom: -84px; width: 110px;" />
+            <ui:Button text="Teleport" emoji-fallback-support="false" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: 85px; bottom: -40px; width: 110px;" />
+            <ui:Button text="Obstruction" emoji-fallback-support="false" name="Button" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: -85px; bottom: 5px; align-items: auto; justify-content: flex-start; align-self: center; width: 110px;" />
+            <ui:Button text="Dash" emoji-fallback-support="false" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: -250px; bottom: 48px; width: 110px; border-left-color: rgb(76, 78, 91); border-right-color: rgb(76, 78, 91); border-top-color: rgb(76, 78, 91); border-bottom-color: rgb(76, 78, 91);" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
