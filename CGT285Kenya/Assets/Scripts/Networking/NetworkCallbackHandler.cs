@@ -43,11 +43,15 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
             lobbyManager.OnPlayerJoined(runner, player);
         }
         
-        /* Only spawn your own player (when YOU join) */
-        if (player == runner.LocalPlayer)
+        /* Spawn in lobby scene */
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (currentScene.Contains("Lobby"))
         {
-            Debug.Log($"[NetworkCallback] This is my player, spawning now");
-            SpawnPlayer(runner, player);
+            Debug.Log($"[NetworkCallback] In lobby scene, spawning player {player.PlayerId}");
+            if (player == runner.LocalPlayer)
+            {
+                SpawnPlayer(runner, player);
+            }
         }
     }
 
@@ -63,27 +67,43 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log($"[NetworkCallback] SpawnPlayer called for Player {player.PlayerId}");
         
-        /* GameManager should be in the scene, but may not be initialized yet */
-        if (GameManager.Instance == null)
+        /* Determine which prefab to use based on scene */
+        string currentScene = SceneManager.GetActiveScene().name;
+        bool isLobby = currentScene.Contains("Lobby");
+        
+        NetworkPlayer prefabToUse = null;
+
+        if (isLobby)
         {
-            Debug.LogError("[NetworkCallback] GameManager.Instance is null!");
-            Debug.LogError("[NetworkCallback] SOLUTION: Make sure GameManager exists in MultiplayerTestScene with [RequireComponent(typeof(NetworkObject))]");
-            Debug.LogError("[NetworkCallback] The game scene must be loaded before players spawn.");
+            /* In lobby: use LobbyPlayerSpawner */
+            var lobbySpawner = Networking.LobbyPlayerSpawner.Instance;
+            if (lobbySpawner == null)
+            {
+                Debug.LogError("[NetworkCallback] LobbyPlayerSpawner.Instance is null! Make sure it's in the lobby scene.");
+                return;
+            }
+            prefabToUse = lobbySpawner.GetLobbyPlayerPrefab();
+        }
+        else
+        {
+            /* In game scene: use GameManager */
+            if (GameManager.Instance == null)
+            {
+                Debug.LogError("[NetworkCallback] GameManager.Instance is null!");
+                return;
+            }
+            prefabToUse = GameManager.Instance.PlayerPrefab;
+        }
+        
+        if (prefabToUse == null)
+        {
+            Debug.LogError($"[NetworkCallback] No prefab assigned! (isLobby={isLobby})");
             return;
         }
         
-        Debug.Log($"[NetworkCallback] GameManager found");
+        Debug.Log($"[NetworkCallback] Using prefab: {prefabToUse.name} (isLobby={isLobby})");
         
-        var playerPrefab = GameManager.Instance.PlayerPrefab;
-        if (playerPrefab == null)
-        {
-            Debug.LogError("[NetworkCallback] PlayerPrefab is not assigned in GameManager!");
-            return;
-        }
-        
-        Debug.Log($"[NetworkCallback] PlayerPrefab found: {playerPrefab.name}");
-        
-        // Check if player already exists
+        /* Check if player already exists */
         var existingPlayer = FindPlayerObject(runner, player);
         if (existingPlayer != null)
         {
@@ -97,7 +117,7 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
         try
         {
             var spawnedPlayer = runner.Spawn(
-                playerPrefab.GetComponent<NetworkObject>(),
+                prefabToUse.GetComponent<NetworkObject>(),
                 spawnPosition,
                 Quaternion.identity,
                 player
@@ -115,19 +135,32 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                     GameManager.Instance.RegisterPlayer(netPlayer);
                 }
 
-                /* Assign ability based on PlayerId (0-based: PlayerId - 1). */
-                /* This is deterministic and identical on every client, so the master */
-                /* client's assignment always matches what non-authority peers expect. */
-                if (abilityConfig != null && netPlayer != null)
+                /* ONLY assign ability in game scene, not in lobby */
+                if (!isLobby && abilityConfig != null && netPlayer != null)
                 {
                     var ac = netPlayer.GetComponent<AbilityController>();
                     if (ac != null)
                     {
-                        int joinOrder = player.PlayerId - 1;
-                        int abilityIndex = abilityConfig.GetAbilityIndex(joinOrder);
+                        /* Get playersPerTeam from runner */
+                        int playersPerTeam = 3;
+                        if (runner != null && runner.SessionInfo != null)
+                        {
+                            playersPerTeam = runner.SessionInfo.MaxPlayers / 2;
+                        }
+                        
+                        /* Calculate ability index: playerId is 1-based, convert to 0-based */
+                        int abilityIndex = (player.PlayerId - 1) % abilityConfig.Abilities.Count;
                         ac.AssignAbility(abilityIndex);
-                        Debug.Log($"[NetworkCallback] Player {player.PlayerId} (joinOrder={joinOrder}) assigned ability index {abilityIndex}");
+                        Debug.Log($"[NetworkCallback] Player {player.PlayerId} assigned ability index {abilityIndex} (playersPerTeam={playersPerTeam})");
                     }
+                    else
+                    {
+                        Debug.LogWarning($"[NetworkCallback] Player {player.PlayerId} has no AbilityController component");
+                    }
+                }
+                else if (isLobby)
+                {
+                    Debug.Log($"[NetworkCallback] In lobby, skipping ability assignment for Player {player.PlayerId}");
                 }
             }
             else
@@ -171,42 +204,61 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log($"[NetworkCallback] Player {player.PlayerId} left the session");
 
-        /* Notify LobbyManager if it exists */
-        var lobbyManager = FindFirstObjectByType<Networking.LobbyManager>();
-        if (lobbyManager != null)
+        try
         {
-            lobbyManager.OnPlayerLeft(runner, player);
-        }
-
-        /* Release ball if the leaving player held it (runs on the ball's state authority) */
-        var ball = FindFirstObjectByType<NetworkBallController>();
-        if (ball != null && ball.Object != null && ball.Object.IsValid &&
-            ball.Object.HasStateAuthority &&
-            ball.CurrentHolder != null &&
-            ball.CurrentHolder.Object != null &&
-            ball.CurrentHolder.Object.InputAuthority == player)
-        {
-            Debug.Log($"[NetworkCallback] Releasing ball from departing player {player.PlayerId}");
-            ball.Release(UnityEngine.Vector3.zero, 0f);
-        }
-
-        /* Unregister player from GameManager */
-        var playerObj = FindPlayerObject(runner, player);
-        if (playerObj != null)
-        {
-            var netPlayer = playerObj.GetComponent<NetworkPlayer>();
-            if (netPlayer != null && GameManager.Instance != null)
+            /* Notify LobbyManager if it exists */
+            var lobbyManager = FindFirstObjectByType<Networking.LobbyManager>();
+            if (lobbyManager != null)
             {
-                GameManager.Instance.UnregisterPlayer(netPlayer);
+                lobbyManager.OnPlayerLeft(runner, player);
+            }
+
+            /* Release ball if the leaving player held it (runs on the ball's state authority) */
+            var ball = FindFirstObjectByType<NetworkBallController>();
+            if (ball != null && ball.Object != null && ball.Object.IsValid)
+            {
+                try
+                {
+                    if (ball.Object.HasStateAuthority &&
+                        ball.CurrentHolder != null &&
+                        ball.CurrentHolder.Object != null &&
+                        ball.CurrentHolder.Object.InputAuthority == player)
+                    {
+                        Debug.Log($"[NetworkCallback] Releasing ball from departing player {player.PlayerId}");
+                        ball.Release(UnityEngine.Vector3.zero, 0f);
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning($"[NetworkCallback] Error releasing ball: {ex.Message}");
+                }
+            }
+
+            /* Unregister player from GameManager */
+            if (GameManager.Instance != null)
+            {
+                var playerObj = FindPlayerObject(runner, player);
+                if (playerObj != null)
+                {
+                    var netPlayer = playerObj.GetComponent<NetworkPlayer>();
+                    if (netPlayer != null)
+                    {
+                        GameManager.Instance.UnregisterPlayer(netPlayer);
+                    }
+                }
+
+                /* In Shared mode, the client's own objects are automatically despawned */
+                /* by the Fusion runtime. Only attempt manual cleanup as a fallback. */
+                if (playerObj != null && runner.IsSharedModeMasterClient)
+                {
+                    Debug.Log($"[NetworkCallback] Manually despawning leftover object for player {player.PlayerId}");
+                    runner.Despawn(playerObj);
+                }
             }
         }
-
-        /* In Shared mode, the client's own objects are automatically despawned */
-        /* by the Fusion runtime. Only attempt manual cleanup as a fallback. */
-        if (playerObj != null && runner.IsSharedModeMasterClient)
+        catch (System.Exception ex)
         {
-            Debug.Log($"[NetworkCallback] Manually despawning leftover object for player {player.PlayerId}");
-            runner.Despawn(playerObj);
+            Debug.LogError($"[NetworkCallback] Exception in OnPlayerLeft: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
@@ -289,13 +341,31 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
         Debug.Log("[NetworkCallback] Scene load completed");
         Debug.Log($"[NetworkCallback] Local Player: {runner.LocalPlayer.PlayerId}, Active Players: {runner.ActivePlayers.Count()}");
         
-        /* Spawn local player in the new scene if not already spawned */
         string currentScene = SceneManager.GetActiveScene().name;
-        if (!currentScene.Contains("Lobby"))
+        if (currentScene.Contains("Lobby"))
         {
-            Debug.Log("[NetworkCallback] Game scene loaded, spawning local player");
-            SpawnPlayer(runner, runner.LocalPlayer);
+            Debug.Log("[NetworkCallback] In lobby scene, not doing scene load actions");
+            return;
         }
+        
+        Debug.Log("[NetworkCallback] Game scene loaded, handling player transition");
+        
+        /* Despawn all lobby players (they were spawned by each client locally in lobby) */
+        var allPlayers = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
+        foreach (var netPlayer in allPlayers)
+        {
+            if (netPlayer.Object != null && netPlayer.Object.IsValid)
+            {
+                var playerRef = netPlayer.Object.InputAuthority;
+                Debug.Log($"[NetworkCallback] Despawning lobby player {playerRef.PlayerId}");
+                runner.Despawn(netPlayer.Object);
+            }
+        }
+        
+        /* IMPORTANT: Only the LOCAL client spawns their own player in the game scene */
+        /* This ensures input authority is correctly matched to the controlling client */
+        Debug.Log($"[NetworkCallback] Local client spawning their own player: {runner.LocalPlayer.PlayerId}");
+        SpawnPlayer(runner, runner.LocalPlayer);
     }
 
     /**

@@ -22,6 +22,7 @@ public class GameManager : NetworkBehaviour
     
     [Header("Prefabs")]
     [SerializeField] private NetworkPlayer playerPrefab;
+    [SerializeField] private NetworkPlayer lobbyPlayerPrefab;
     [SerializeField] private NetworkBallController ballPrefab;
     
     [Header("Configuration")]
@@ -36,6 +37,7 @@ public class GameManager : NetworkBehaviour
     [Networked] private TickTimer fieldResetTimer { get; set; }
     
     public NetworkPlayer PlayerPrefab => playerPrefab;
+    public NetworkPlayer LobbyPlayerPrefab => lobbyPlayerPrefab;
     public NetworkBallController BallPrefab => ballPrefab;
     public float TimeRemaining => (Object != null && Object.IsValid) ? (MatchTimer.RemainingTime(Runner) ?? 0f) : 0f;
     public float ElapsedTime => (Object != null && Object.IsValid && matchRulesConfig != null) 
@@ -59,19 +61,11 @@ public class GameManager : NetworkBehaviour
         Debug.Log("[GameManager] GameManager initialized and marked DontDestroyOnLoad");
     }
 
+    private bool matchStarted = false;
+
     private void Start()
-    {
-        /* Check if we're in the lobby or game scene */
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (currentScene.Contains("Lobby"))
-        {
-            Debug.Log("[GameManager] In lobby scene - not starting match yet");
-            /* Don't start match in lobby, wait until game scene loads */
-        }
-        else
-        {
-            Debug.Log("[GameManager] In game scene");
-        }
+    { 
+        Debug.Log("[GameManager] In game scene");
     }
 
     public override void Spawned()
@@ -79,7 +73,24 @@ public class GameManager : NetworkBehaviour
         Debug.Log($"[GameManager] Spawned called. HasStateAuthority: {Object.HasStateAuthority}");
         
         /* Initialize match for all clients, but only state authority spawns the ball */
-        StartMatch();
+        if (!matchStarted && Object.HasStateAuthority)
+        {
+            Debug.Log("[GameManager] Calling StartMatch from Spawned()");
+            StartMatch();
+            matchStarted = true;
+        }
+    }
+
+    private void Update()
+    {
+        /* Failsafe: if we're in game scene and match not started, try to start it */
+        if (!matchStarted && Object != null && Object.IsValid && Object.HasStateAuthority)
+        {
+
+            Debug.Log("[GameManager] Match not started yet, initializing from Update");
+            StartMatch();
+            matchStarted = true;
+        }
     }
 
     public override void FixedUpdateNetwork()
@@ -122,17 +133,14 @@ public class GameManager : NetworkBehaviour
     {
         if (!Object.HasStateAuthority) 
         {
-            Debug.Log("[GameManager] Not state authority, waiting for other client to initialize match");
+            Debug.Log("[GameManager] Not state authority, skipping StartMatch");
             return;
         }
         
-        /* Only start match in game scene, not in lobby */
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (currentScene.Contains("Lobby"))
-        {
-            Debug.Log("[GameManager] In lobby scene, skipping match start");
-            return;
-        }
+        Debug.Log("[GameManager] Starting match...");
+        Debug.Log($"[GameManager] MatchRulesConfig: {(matchRulesConfig != null ? "assigned" : "NULL")}");
+        Debug.Log($"[GameManager] BallPrefab: {(ballPrefab != null ? "assigned" : "NULL")}");
+        Debug.Log($"[GameManager] SpawnPointConfig: {(spawnPointConfig != null ? "assigned" : "NULL")}");
         
         Team0Score = 0;
         Team1Score = 0;
@@ -143,6 +151,9 @@ public class GameManager : NetworkBehaviour
         
         MatchTimer = TickTimer.CreateFromSeconds(Runner, duration);
         MatchActive = true;
+        
+        Debug.Log($"[GameManager] MatchTimer initialized: {duration}s");
+        Debug.Log($"[GameManager] About to call SpawnBall...");
         
         SpawnBall();
         
