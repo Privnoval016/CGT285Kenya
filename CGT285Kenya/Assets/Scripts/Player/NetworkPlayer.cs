@@ -150,8 +150,19 @@ public class NetworkPlayer : NetworkBehaviour
 
         if (Object.HasStateAuthority)
         {
-            Team = (Object.InputAuthority.PlayerId <= 2) ? 0 : 1;
-            Debug.Log($"[Player] player {Object.InputAuthority.PlayerId} → team {Team}");
+            /* Calculate team dynamically based on maxPlayers */
+            int playersPerTeam = 3; /* Default to 3v3 */
+
+            if (Runner != null && Runner.SessionInfo != null)
+            {
+                int maxPlayers = Runner.SessionInfo.MaxPlayers;
+                playersPerTeam = maxPlayers / 2;
+                Debug.Log($"[Player] Dynamic team calculation: maxPlayers={maxPlayers}, playersPerTeam={playersPerTeam}");
+            }
+
+            int zeroBasedId = Object.InputAuthority.PlayerId - 1;
+            Team = zeroBasedId / playersPerTeam;
+            Debug.Log($"[Player] player {Object.InputAuthority.PlayerId} → team {Team} (playersPerTeam={playersPerTeam})");
         }
 
         prevTeam = Team;
@@ -464,6 +475,29 @@ public class NetworkPlayer : NetworkBehaviour
 
         materialInstance.color = Team == 0 ? team0Color : team1Color;
         visualMesh.material = materialInstance;
+    }
+
+    /**
+     * <summary>
+     * Resets the player to a spawn position with zero velocity.
+     * Called during field resets after scoring.
+     * Can be called from any client; resets local state.
+     * </summary>
+     * <param name="spawnPosition">The position to reset the player to</param>
+     */
+    public void ResetToSpawnPosition(Vector3 spawnPosition)
+    {
+        transform.position = spawnPosition;
+        moveDir = Vector3.zero;
+        verticalVelocity = 0f;
+        
+        if (cc != null)
+        {
+            cc.enabled = false;
+            cc.enabled = true;
+        }
+
+        Debug.Log($"[NetworkPlayer] {Object.InputAuthority.PlayerId} reset to spawn position: {spawnPosition}");
     }
 
     #endregion

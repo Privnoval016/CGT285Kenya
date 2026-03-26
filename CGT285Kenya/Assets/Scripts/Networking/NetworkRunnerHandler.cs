@@ -20,7 +20,7 @@ public class NetworkRunnerHandler : MonoBehaviour
     [SerializeField] private string gameSceneName = "SampleScene";
     [SerializeField] private GameMode gameMode = GameMode.Shared;
     [SerializeField] private string sessionName = "SoccerMatch";
-    [SerializeField] private int maxPlayers = 6;
+    [SerializeField] private int maxPlayers = 4;
     
     private NetworkRunner runnerInstance;
     
@@ -28,6 +28,16 @@ public class NetworkRunnerHandler : MonoBehaviour
 
     private void Start()
     {
+        /* Check if runner already exists (from LobbyManager) */
+        var existingRunner = FindFirstObjectByType<NetworkRunner>();
+        if (existingRunner != null)
+        {
+            Debug.Log("[NetworkRunnerHandler] Runner already exists from lobby, skipping Start");
+            runnerInstance = existingRunner;
+            return;
+        }
+
+        /* Only start game if no runner exists */
         StartGameAsync().ContinueWith(task =>
         {
             if (task.IsFaulted)

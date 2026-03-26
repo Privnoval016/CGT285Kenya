@@ -292,6 +292,27 @@ public class NetworkBallController : NetworkBehaviour
         AuthorityRelease(direction, speed);
     }
 
+    /**
+     * <summary>
+     * Resets the ball to a spawn position with zero velocity.
+     * Called during field resets after scoring.
+     * Only valid on state authority.
+     * </summary>
+     * <param name="spawnPosition">The position to reset the ball to</param>
+     */
+    public void ResetToSpawnPosition(Vector3 spawnPosition)
+    {
+        if (!Object.HasStateAuthority) return;
+
+        CurrentHolder = null;
+        BallVelocity = Vector3.zero;
+        SimPosition = spawnPosition;
+        PickupCooldownTimer = TickTimer.None;
+        
+        transform.position = spawnPosition;
+        Debug.Log($"[NetworkBall] Reset to spawn position: {spawnPosition}");
+    }
+
     #endregion
 
     #region RPCs
