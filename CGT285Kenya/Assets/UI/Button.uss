@@ -5,6 +5,14 @@
     border-right-color: rgb(0, 38, 212);
     border-top-color: rgb(0, 38, 212);
     border-bottom-color: rgb(0, 38, 212);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
 }
 
 .PlayButton {
@@ -14,4 +22,21 @@
     border-right-color: rgb(0, 38, 212);
     border-top-color: rgb(0, 38, 212);
     border-bottom-color: rgb(0, 38, 212);
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+}
+
+.Label {
+    width: 110px;
+    background-color: rgb(0, 220, 255);
+    border-left-color: rgb(0, 38, 212);
+    border-right-color: rgb(0, 38, 212);
+    border-top-color: rgb(0, 38, 212);
+    border-bottom-color: rgb(0, 38, 212);
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
 }
