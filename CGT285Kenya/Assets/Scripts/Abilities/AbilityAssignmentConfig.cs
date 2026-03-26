@@ -27,6 +27,11 @@ public class AbilityAssignmentConfig : ScriptableObject
     /** Read-only view of the ability list for editor tooling. */
     public IReadOnlyList<AbilityBase> Abilities => abilities;
 
+    private int currentAbility = 0;
+    public void SetAbility(int newAbility)
+    {
+        currentAbility = newAbility;
+    }
     /**
      * <summary>
      * Returns the ability template for the given index.
@@ -53,8 +58,9 @@ public class AbilityAssignmentConfig : ScriptableObject
      */
     public int GetAbilityIndex(int joinOrder)
     {
-        if (abilities == null || abilities.Count == 0) return -1;
-        return joinOrder % abilities.Count;
+        /*if (abilities == null || abilities.Count == 0) return -1;
+        return joinOrder % abilities.Count;*/
+        return currentAbility;
     }
 }
 

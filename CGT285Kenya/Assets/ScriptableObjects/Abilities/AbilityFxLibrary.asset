@@ -21,7 +21,7 @@ MonoBehaviour:
       pitchMax: 1.05
       vfxPrefab: {fileID: 8176850701479282271, guid: b219c04f384e7f345bb8ae1fef443965, type: 3}
       vfxScale: 0.5
-      vfxYOffset: 0
+      vfxYOffset: 1
   - fxEvent: 0
     data:
       sfxClip: {fileID: 8300000, guid: 29cd8bdc7a125334e987b7181258a7eb, type: 3}
@@ -39,7 +39,7 @@ MonoBehaviour:
       pitchMax: 1.05
       vfxPrefab: {fileID: 8176850701479282271, guid: b219c04f384e7f345bb8ae1fef443965, type: 3}
       vfxScale: 0.7
-      vfxYOffset: 0
+      vfxYOffset: 1
   - fxEvent: 3
     data:
       sfxClip: {fileID: 8300000, guid: 34f279564c3db974aa804e2605f4b8c4, type: 3}
@@ -47,8 +47,8 @@ MonoBehaviour:
       pitchMin: 0.95
       pitchMax: 1.05
       vfxPrefab: {fileID: 4035903591278710484, guid: aa122f157eac1c8428ae5db8a315ccd8, type: 3}
-      vfxScale: 0.5
-      vfxYOffset: 0
+      vfxScale: 0.4
+      vfxYOffset: 1
   - fxEvent: 4
     data:
       sfxClip: {fileID: 8300000, guid: 41bfaf887562c064fa73d416763fecaa, type: 3}
@@ -57,7 +57,7 @@ MonoBehaviour:
       pitchMax: 1.05
       vfxPrefab: {fileID: 8680598818964007281, guid: dcd90c4976197424b9958a7c54b6bb8c, type: 3}
       vfxScale: 1
-      vfxYOffset: 0
+      vfxYOffset: 1.5
   - fxEvent: 5
     data:
       sfxClip: {fileID: 8300000, guid: d768bc2098529234f9cf32880dc69e92, type: 3}
@@ -65,8 +65,8 @@ MonoBehaviour:
       pitchMin: 0.95
       pitchMax: 1.05
       vfxPrefab: {fileID: 2020661361868494885, guid: 895c6d094b6b213418cddcfb520298e9, type: 3}
-      vfxScale: 1
-      vfxYOffset: 0
+      vfxScale: 0.7
+      vfxYOffset: 1
   - fxEvent: 6
     data:
       sfxClip: {fileID: 8300000, guid: f23ad67ab4947fc4c9daa1422421a11e, type: 3}
@@ -74,5 +74,5 @@ MonoBehaviour:
       pitchMin: 0.95
       pitchMax: 1.05
       vfxPrefab: {fileID: 2020661361868494885, guid: 895c6d094b6b213418cddcfb520298e9, type: 3}
-      vfxScale: 1
-      vfxYOffset: 0
+      vfxScale: 0.7
+      vfxYOffset: 1
