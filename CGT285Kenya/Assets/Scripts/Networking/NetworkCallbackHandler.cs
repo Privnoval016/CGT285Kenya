@@ -128,12 +128,6 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                 Debug.Log($"[NetworkCallback] Successfully spawned player object for Player {player.PlayerId} at {spawnPosition}");
 
                 var netPlayer = spawnedPlayer.GetComponent<NetworkPlayer>();
-                
-                /* Register with GameManager for tracking */
-                if (GameManager.Instance != null && netPlayer != null)
-                {
-                    GameManager.Instance.RegisterPlayer(netPlayer);
-                }
 
                 /* ONLY assign ability in game scene, not in lobby */
                 if (!isLobby && abilityConfig != null && netPlayer != null)
@@ -238,14 +232,6 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (GameManager.Instance != null)
             {
                 var playerObj = FindPlayerObject(runner, player);
-                if (playerObj != null)
-                {
-                    var netPlayer = playerObj.GetComponent<NetworkPlayer>();
-                    if (netPlayer != null)
-                    {
-                        GameManager.Instance.UnregisterPlayer(netPlayer);
-                    }
-                }
 
                 /* In Shared mode, the client's own objects are automatically despawned */
                 /* by the Fusion runtime. Only attempt manual cleanup as a fallback. */
