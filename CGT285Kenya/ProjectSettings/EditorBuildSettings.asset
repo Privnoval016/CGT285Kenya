@@ -7,7 +7,7 @@ EditorBuildSettings:
   m_Scenes:
   - enabled: 1
     path: Assets/Scenes/LobbyScene.unity
-    guid: ffa3d97ead6e34ad99ac559b68f818c9
+    guid: 7a8656a2838406a408730125ff8203e9
   - enabled: 1
     path: Assets/Scenes/OverDriveZone.unity
     guid: 9b352e3effa8148798e029be7fbeb227

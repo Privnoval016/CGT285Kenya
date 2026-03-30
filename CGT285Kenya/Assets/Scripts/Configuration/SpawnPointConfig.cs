@@ -1,15 +1,14 @@
 using UnityEngine;
 
-namespace Configuration
-{
-    /**
-     * <summary>
-     * SpawnPointConfig defines spawn positions for players and ball on the field.
-     * Allows designers to configure exact spawn locations per team and position.
-     * </summary>
-     */
-    [CreateAssetMenu(menuName = "Game/Spawn Point Config", fileName = "SpawnPointConfig")]
-    public class SpawnPointConfig : ScriptableObject
+
+/**
+ * <summary>
+ * SpawnPointConfig defines spawn positions for players and ball on the field.
+ * Allows designers to configure exact spawn locations per team and position.
+ * </summary>
+ */
+[CreateAssetMenu(menuName = "Game/Spawn Point Config", fileName = "SpawnPointConfig")]
+public class SpawnPointConfig : ScriptableObject
 {
     [System.Serializable]
     public struct TeamSpawns
@@ -123,7 +122,7 @@ namespace Configuration
         return GetLobbySpawnPosition(team, positionIndex);
     }
 }
-}
+
 
 
 

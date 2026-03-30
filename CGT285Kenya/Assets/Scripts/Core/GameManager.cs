@@ -4,10 +4,10 @@ using Fusion;
 /**
  * GameManager is the central authority for match state and game flow.
  * It's a singleton that manages score, match time, and game events.
- * 
+ *
  * Pattern: Singleton for global access
  * Fusion: Uses [Networked] properties to sync game state across all clients
- * 
+ *
  * IMPORTANT: GameManager MUST have a NetworkObject component in the scene!
  * This is automatically enforced by the [RequireComponent] attribute.
  */
@@ -15,26 +15,26 @@ using Fusion;
 public class GameManager : NetworkBehaviour
 {
     public static GameManager Instance { get; private set; }
-    
-    [Header("Prefabs")]
-    [SerializeField] private NetworkPlayer playerPrefab;
+
+    [Header("Prefabs")] [SerializeField] private NetworkPlayer playerPrefab;
     [SerializeField] private NetworkBallController ballPrefab;
-    
-    [Header("Match Settings")]
-    [SerializeField] private float matchDuration = 180f;
+
+    [Header("Match Settings")] [SerializeField]
+    private float matchDuration = 180f;
+
     [SerializeField] private int scoreToWin = 3;
-    
+
     [Networked] public int Team0Score { get; set; }
     [Networked] public int Team1Score { get; set; }
     [Networked] public TickTimer MatchTimer { get; set; }
     [Networked] public bool MatchActive { get; set; }
-    
+
     public NetworkPlayer PlayerPrefab => playerPrefab;
     public NetworkBallController BallPrefab => ballPrefab;
     public float TimeRemaining => (Object != null && Object.IsValid) ? (MatchTimer.RemainingTime(Runner) ?? 0f) : 0f;
-    
+
     private NetworkBallController cachedBall;
-    
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -42,6 +42,7 @@ public class GameManager : NetworkBehaviour
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
     }
 
@@ -61,7 +62,7 @@ public class GameManager : NetworkBehaviour
             {
                 EndMatch();
             }
-            
+
             if (Team0Score >= scoreToWin || Team1Score >= scoreToWin)
             {
                 EndMatch();
@@ -72,23 +73,23 @@ public class GameManager : NetworkBehaviour
     private void StartMatch()
     {
         if (!Object.HasStateAuthority) return;
-        
+
         Team0Score = 0;
         Team1Score = 0;
         MatchTimer = TickTimer.CreateFromSeconds(Runner, matchDuration);
         MatchActive = true;
-        
+
         SpawnBall();
-        
+
         Debug.Log("Match started!");
     }
 
     private void EndMatch()
     {
         if (!Object.HasStateAuthority) return;
-        
+
         MatchActive = false;
-        
+
         int winner = Team0Score > Team1Score ? 0 : 1;
         Debug.Log($"Match ended! Team {winner} wins! Score: {Team0Score} - {Team1Score}");
     }
@@ -96,7 +97,7 @@ public class GameManager : NetworkBehaviour
     public void OnGoalScored(int scoringTeam)
     {
         if (!Object.HasStateAuthority) return;
-        
+
         if (scoringTeam == 0)
         {
             Team1Score++;
@@ -112,10 +113,15 @@ public class GameManager : NetworkBehaviour
         ObstructionBlock.DespawnAll(Runner);
     }
 
+    private void ResetField()
+    {
+        
+    }
+
     private void SpawnBall()
     {
         if (!Object.HasStateAuthority) return;
-        
+
         if (cachedBall == null && ballPrefab != null)
         {
             cachedBall = Runner.Spawn(ballPrefab, new Vector3(0, 0.5f, 0), Quaternion.identity);
@@ -126,7 +132,7 @@ public class GameManager : NetworkBehaviour
     public void ResetBall()
     {
         if (!Object.HasStateAuthority) return;
-        
+
         if (cachedBall != null)
         {
             cachedBall.transform.position = new Vector3(0, 0.5f, 0);
@@ -137,7 +143,7 @@ public class GameManager : NetworkBehaviour
             }
         }
     }
-    
+
     public void RegisterBall(NetworkBallController ball)
     {
         cachedBall = ball;

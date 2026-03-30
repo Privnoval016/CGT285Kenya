@@ -17,10 +17,8 @@ namespace Networking
      */
     public class LobbyManager : MonoBehaviour
     {
-        [Header("UI References")]
-        [SerializeField] private TMP_Text statusText;
-        [SerializeField] private Button startButton;
-        [SerializeField] private TMP_InputField sessionNameInput;
+        [Header("UI References")] [SerializeField]
+        private UI uiComponents;
 
         [Header("Scene Names")]
         [SerializeField] private string gameSceneName = "MultiplayerTestScene";
@@ -45,9 +43,9 @@ namespace Networking
 
         private void Start()
         {
-            if (startButton != null)
+            if (uiComponents.play != null)
             {
-                startButton.onClick.AddListener(OnStartGamePressed);
+                uiComponents.play.clicked += OnStartGamePressed;
             }
 
             UpdateStatusText("Ready to find a match. Press Start Game.");
@@ -108,8 +106,8 @@ namespace Networking
             DontDestroyOnLoad(callbackHandler.gameObject);
             networkRunner.AddCallbacks(callbackHandler);
 
-            currentSessionName = !string.IsNullOrEmpty(sessionNameInput?.text)
-                ? sessionNameInput.text
+            currentSessionName = !string.IsNullOrEmpty(uiComponents.code?.text)
+                ? uiComponents.code.text
                 : "SoccerMatch"; /* Default session name - all players join same session */
 
             /* Get game scene build index */
@@ -200,17 +198,17 @@ namespace Networking
         private void UpdateStatusText(string message)
         {
             Debug.Log($"[LobbyManager] {message}");
-            if (statusText != null)
+            if (uiComponents.statusText != null)
             {
-                statusText.text = message;
+                uiComponents.statusText.text = message;
             }
         }
 
         private void OnDestroy()
         {
-            if (startButton != null)
+            if (uiComponents.play != null)
             {
-                startButton.onClick.RemoveListener(OnStartGamePressed);
+                uiComponents.play.clicked -= OnStartGamePressed;
             }
         }
     }

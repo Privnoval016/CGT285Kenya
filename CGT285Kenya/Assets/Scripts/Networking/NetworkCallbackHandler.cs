@@ -4,7 +4,6 @@ using System.Linq;
 using UnityEngine;
 using Fusion;
 using Fusion.Sockets;
-using Configuration;
 using UnityEngine.SceneManagement;
 
 /**
@@ -14,12 +13,16 @@ using UnityEngine.SceneManagement;
 public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
 {
     [Header("Ability Assignment")]
-    [Tooltip("Defines which ability each player slot receives. Assign the same config asset here and on the player prefab's AbilityController.")]
-    [SerializeField] private AbilityAssignmentConfig abilityConfig;
+    [Tooltip(
+        "Defines which ability each player slot receives. Assign the same config asset here and on the player prefab's AbilityController.")]
+    [SerializeField]
+    private AbilityAssignmentConfig abilityConfig;
 
     [Header("Spawn Configuration")]
-    [Tooltip("Defines spawn positions for all players and the ball. Assign the same config asset here and in GameManager.")]
-    [SerializeField] private SpawnPointConfig spawnPointConfig;
+    [Tooltip(
+        "Defines spawn positions for all players and the ball. Assign the same config asset here and in GameManager.")]
+    [SerializeField]
+    private SpawnPointConfig spawnPointConfig;
 
     // No joinCount needed — we derive the ability index from player.PlayerId directly.
     // PlayerId is globally unique and starts at 1, so (PlayerId - 1) is a stable 0-based index
@@ -34,15 +37,16 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
      */
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"[NetworkCallback] Player {player.PlayerId} joined. IsLocal: {player == runner.LocalPlayer}, IsMaster: {runner.IsSharedModeMasterClient}");
-        
+        Debug.Log(
+            $"[NetworkCallback] Player {player.PlayerId} joined. IsLocal: {player == runner.LocalPlayer}, IsMaster: {runner.IsSharedModeMasterClient}");
+
         /* Notify LobbyManager if it exists for matchmaking tracking */
         var lobbyManager = FindFirstObjectByType<Networking.LobbyManager>();
         if (lobbyManager != null)
         {
             lobbyManager.OnPlayerJoined(runner, player);
         }
-        
+
         /* Spawn in lobby scene */
         string currentScene = SceneManager.GetActiveScene().name;
         if (currentScene.Contains("Lobby"))
@@ -66,11 +70,11 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
     private void SpawnPlayer(NetworkRunner runner, PlayerRef player)
     {
         Debug.Log($"[NetworkCallback] SpawnPlayer called for Player {player.PlayerId}");
-        
+
         /* Determine which prefab to use based on scene */
         string currentScene = SceneManager.GetActiveScene().name;
         bool isLobby = currentScene.Contains("Lobby");
-        
+
         NetworkPlayer prefabToUse = null;
 
         if (isLobby)
@@ -79,9 +83,11 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
             var lobbySpawner = Networking.LobbyPlayerSpawner.Instance;
             if (lobbySpawner == null)
             {
-                Debug.LogError("[NetworkCallback] LobbyPlayerSpawner.Instance is null! Make sure it's in the lobby scene.");
+                Debug.LogError(
+                    "[NetworkCallback] LobbyPlayerSpawner.Instance is null! Make sure it's in the lobby scene.");
                 return;
             }
+
             prefabToUse = lobbySpawner.GetLobbyPlayerPrefab();
         }
         else
@@ -92,17 +98,18 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                 Debug.LogError("[NetworkCallback] GameManager.Instance is null!");
                 return;
             }
+
             prefabToUse = GameManager.Instance.PlayerPrefab;
         }
-        
+
         if (prefabToUse == null)
         {
             Debug.LogError($"[NetworkCallback] No prefab assigned! (isLobby={isLobby})");
             return;
         }
-        
+
         Debug.Log($"[NetworkCallback] Using prefab: {prefabToUse.name} (isLobby={isLobby})");
-        
+
         /* Check if player already exists */
         var existingPlayer = FindPlayerObject(runner, player);
         if (existingPlayer != null)
@@ -110,10 +117,10 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
             Debug.Log($"[NetworkCallback] Player {player.PlayerId} already exists, skipping spawn");
             return;
         }
-        
+
         Vector3 spawnPosition = GetSpawnPosition(player, runner);
         Debug.Log($"[NetworkCallback] Attempting to spawn player {player.PlayerId} at position: {spawnPosition}");
-        
+
         try
         {
             var spawnedPlayer = runner.Spawn(
@@ -122,10 +129,11 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                 Quaternion.identity,
                 player
             );
-            
+
             if (spawnedPlayer != null)
             {
-                Debug.Log($"[NetworkCallback] Successfully spawned player object for Player {player.PlayerId} at {spawnPosition}");
+                Debug.Log(
+                    $"[NetworkCallback] Successfully spawned player object for Player {player.PlayerId} at {spawnPosition}");
 
                 var netPlayer = spawnedPlayer.GetComponent<NetworkPlayer>();
 
@@ -141,15 +149,17 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                         {
                             playersPerTeam = runner.SessionInfo.MaxPlayers / 2;
                         }
-                        
+
                         /* Calculate ability index: playerId is 1-based, convert to 0-based */
                         int abilityIndex = (player.PlayerId - 1) % abilityConfig.Abilities.Count;
                         ac.AssignAbility(abilityIndex);
-                        Debug.Log($"[NetworkCallback] Player {player.PlayerId} assigned ability index {abilityIndex} (playersPerTeam={playersPerTeam})");
+                        Debug.Log(
+                            $"[NetworkCallback] Player {player.PlayerId} assigned ability index {abilityIndex} (playersPerTeam={playersPerTeam})");
                     }
                     else
                     {
-                        Debug.LogWarning($"[NetworkCallback] Player {player.PlayerId} has no AbilityController component");
+                        Debug.LogWarning(
+                            $"[NetworkCallback] Player {player.PlayerId} has no AbilityController component");
                     }
                 }
                 else if (isLobby)
@@ -164,7 +174,8 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[NetworkCallback] Exception spawning player {player.PlayerId}: {e.Message}\n{e.StackTrace}");
+            Debug.LogError(
+                $"[NetworkCallback] Exception spawning player {player.PlayerId}: {e.Message}\n{e.StackTrace}");
         }
     }
 
@@ -181,6 +192,7 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                 return netPlayer.Object;
             }
         }
+
         return null;
     }
 
@@ -325,17 +337,18 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
     public void OnSceneLoadDone(NetworkRunner runner)
     {
         Debug.Log("[NetworkCallback] Scene load completed");
-        Debug.Log($"[NetworkCallback] Local Player: {runner.LocalPlayer.PlayerId}, Active Players: {runner.ActivePlayers.Count()}");
-        
+        Debug.Log(
+            $"[NetworkCallback] Local Player: {runner.LocalPlayer.PlayerId}, Active Players: {runner.ActivePlayers.Count()}");
+
         string currentScene = SceneManager.GetActiveScene().name;
         if (currentScene.Contains("Lobby"))
         {
             Debug.Log("[NetworkCallback] In lobby scene, not doing scene load actions");
             return;
         }
-        
+
         Debug.Log("[NetworkCallback] Game scene loaded, handling player transition");
-        
+
         /* Despawn all lobby players (they were spawned by each client locally in lobby) */
         var allPlayers = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
         foreach (var netPlayer in allPlayers)
@@ -347,7 +360,7 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                 runner.Despawn(netPlayer.Object);
             }
         }
-        
+
         /* IMPORTANT: Only the LOCAL client spawns their own player in the game scene */
         /* This ensures input authority is correctly matched to the controlling client */
         Debug.Log($"[NetworkCallback] Local client spawning their own player: {runner.LocalPlayer.PlayerId}");
@@ -451,10 +464,10 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
         int zeroBasedId = player.PlayerId - 1;
         int team = zeroBasedId / playersPerTeam;
         int positionInTeam = zeroBasedId % playersPerTeam;
-        
+
         float xPos = team == 0 ? -5f : 5f;
         float zPos = (positionInTeam - 1) * 3f;
-        
+
         return new Vector3(xPos, 0.5f, zPos);
     }
 }
