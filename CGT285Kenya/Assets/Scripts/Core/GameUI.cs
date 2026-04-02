@@ -16,17 +16,16 @@ public class GameUI : MonoBehaviour
     
     [Header("Timer Display")]
     [SerializeField] private TextMeshProUGUI timerText;
-    
-    [Header("Ability Display")]
-    [SerializeField] private Image abilityCooldownImage;
-    [SerializeField] private TextMeshProUGUI abilityCooldownText;
+
+    [Header("Ability Display")] [SerializeField]
+    private UIButtonClicker abilityButton;
     
     [Header("Connection Status")]
     [SerializeField] private TextMeshProUGUI connectionStatusText;
     
     private GameManager gameManager;
     private NetworkPlayer localPlayer;
-    private AbilityController localAbilityController;
+    public AbilityController localAbilityController;
     
     /**
      * <summary>
@@ -113,41 +112,21 @@ public class GameUI : MonoBehaviour
      */
     private void UpdateAbilityDisplay()
     {
-        if (localAbilityController == null || abilityCooldownImage == null) 
+        if (localAbilityController == null || abilityButton == null) 
             return;     
 
         float cooldown = localAbilityController.GetCooldownRemaining();
         bool isReady = localAbilityController.IsAbilityReady();
         var ability = localAbilityController.ActiveAbility;
         
-        // Update fill amount
-        if (isReady)
-        {
-            abilityCooldownImage.fillAmount = 1f;
-            abilityCooldownImage.color = Color.white;
-        }
-        else if (ability != null)
-        {
-            abilityCooldownImage.fillAmount = 1f - (cooldown / ability.CooldownDuration);
-            abilityCooldownImage.color = Color.gray;
-        }
+        float sliderPercentage = cooldown > 0f ? Mathf.Clamp01(cooldown / ability.CooldownDuration) : 0f;
         
-        // Update text
-        if (abilityCooldownText != null)
-        {
-            if (ability == null)
-            {
-                abilityCooldownText.text = "No Ability";
-            }
-            else if (isReady)
-            {
-                abilityCooldownText.text = "Ready";
-            }
-            else
-            {
-                abilityCooldownText.text = $"{cooldown:F1}s";
-            }
-        }
+        abilityButton.SetSliderPercentage(sliderPercentage);
+        
+        if (isReady)
+            abilityButton.CooldownFinished();
+        else
+            abilityButton.CooldownStarted();
     }
 
     /**

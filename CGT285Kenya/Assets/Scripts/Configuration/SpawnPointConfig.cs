@@ -17,7 +17,8 @@ public class SpawnPointConfig : ScriptableObject
         public Vector3[] positions;
     }
 
-    [Header("Team Spawns")]
+    [Header("Team Spawns")] 
+    public int numPlayersPerTeam = 2;
     [SerializeField] private TeamSpawns team0Spawns;
     [SerializeField] private TeamSpawns team1Spawns;
 
@@ -87,7 +88,7 @@ public class SpawnPointConfig : ScriptableObject
      */
     public Vector3 GetPlayerSpawnByPlayerId(int playerId)
     {
-        return GetPlayerSpawnByPlayerId(playerId, 3);
+        return GetPlayerSpawnByPlayerId(playerId, numPlayersPerTeam);
     }
 
     /**

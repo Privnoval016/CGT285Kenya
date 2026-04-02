@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /**
@@ -28,6 +29,7 @@ public class InputController : MonoBehaviour
     [Header("Mobile Input References")]
     [SerializeField] private MobileJoystick movementJoystick;
     [SerializeField] private MobileJoystick aimJoystick;
+    [SerializeField] private UIButtonClicker abilityButton;
 
     [Header("Keyboard Input Settings")]
     [SerializeField] private bool useKeyboardInput = true;
@@ -71,6 +73,13 @@ public class InputController : MonoBehaviour
     {
         if (gameCamera == null)
             gameCamera = Camera.main;
+        
+        abilityButton.OnClick += () => ability1Pressed = true;
+    }
+
+    private void OnDisable()
+    {
+        abilityButton.OnClick -= () => ability1Pressed = false;
     }
 
     private void Update()
@@ -191,13 +200,12 @@ public class InputController : MonoBehaviour
     {
         var data = new NetworkInputData
         {
-            MovementInput      = movementInput,
-            AimInput           = rawAimInput,
-            AimHoldDuration    = pendingAimRelease
-                                    ? pendingReleaseDuration
-                                    : (aimHoldStartTime >= 0f ? Time.time - aimHoldStartTime : 0f),
-            AimJustReleased    = pendingAimRelease,
-            LastAimDirection   = pendingAimRelease ? pendingReleaseDirection : lastNonZeroAimDir,
+            MovementInput = movementInput,
+            AimInput = rawAimInput,
+            AimHoldDuration = pendingAimRelease ? pendingReleaseDuration
+                            : (aimHoldStartTime >= 0f ? Time.time - aimHoldStartTime : 0f),
+            AimJustReleased= pendingAimRelease,
+            LastAimDirection = pendingAimRelease ? pendingReleaseDirection : lastNonZeroAimDir,
             AbilityTapPosition = hasPendingAbilityTap ? pendingAbilityTapPosition : Vector3.zero,
         };
 
@@ -208,12 +216,12 @@ public class InputController : MonoBehaviour
 
         if (pendingAimRelease)
         {
-            pendingAimRelease       = false;
+            pendingAimRelease = false;
             pendingReleaseDirection = Vector2.zero;
-            pendingReleaseDuration  = 0f;
+            pendingReleaseDuration = 0f;
         }
 
-        hasPendingAbilityTap      = false;
+        hasPendingAbilityTap = false;
         pendingAbilityTapPosition = Vector3.zero;
 
         return data;
@@ -234,6 +242,6 @@ public class InputController : MonoBehaviour
     public void SetAbilityTapPosition(Vector3 worldPosition)
     {
         pendingAbilityTapPosition = worldPosition;
-        hasPendingAbilityTap      = true;
+        hasPendingAbilityTap = true;
     }
 }

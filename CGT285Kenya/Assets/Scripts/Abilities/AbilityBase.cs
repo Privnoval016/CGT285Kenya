@@ -34,15 +34,11 @@ public abstract class AbilityBase
     /** The controller that owns this ability; used to read/write the TickTimer. */
     protected AbilityController Controller;
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Public properties
-    // ──────────────────────────────────────────────────────────────────────────
-
     /** Display name shown in the UI. */
-    public string AbilityName      => abilityName;
+    public string AbilityName => abilityName;
 
     /** Total cooldown length in seconds. */
-    public float  CooldownDuration => cooldownDuration;
+    public float CooldownDuration => cooldownDuration;
 
     /** Optional icon for the HUD. */
     public Sprite Icon             => abilityIcon;

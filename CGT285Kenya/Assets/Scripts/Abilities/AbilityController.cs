@@ -86,11 +86,6 @@ public class AbilityController : NetworkBehaviour
 
     public override void Spawned()
     {
-        // Do NOT reset AbilityIndex here.
-        // NetworkCallbackHandler.SpawnPlayer may have already written it before
-        // Spawned() fires.  We simply materialise whatever is already set.
-        // If nothing was set yet (AbilityIndex == -1) the ability stays null
-        // until AssignAbility() is called and Render() detects the change.
         RebuildAbilityInstance();
     }
 

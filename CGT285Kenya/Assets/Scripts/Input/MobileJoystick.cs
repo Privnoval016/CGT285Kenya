@@ -104,4 +104,3 @@ public class MobileJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         _inputDirection = direction / _handleRange;
     }
 }
-

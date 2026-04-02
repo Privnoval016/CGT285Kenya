@@ -113,11 +113,6 @@ public class GameManager : NetworkBehaviour
         ObstructionBlock.DespawnAll(Runner);
     }
 
-    private void ResetField()
-    {
-        
-    }
-
     private void SpawnBall()
     {
         if (!Object.HasStateAuthority) return;
