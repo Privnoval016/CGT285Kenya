@@ -151,7 +151,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_PanelSettings: {fileID: 11400000, guid: cfffdc3b979f0be4eb533f9191476f0c, type: 2}
   m_ParentUI: {fileID: 0}
-  sourceAsset: {fileID: 9197481963319205126, guid: a583be66c5b7de748aad6ba19d1e403e, type: 3}
+  sourceAsset: {fileID: 9197481963319205126, guid: 900cb466c3df90242b478a064c85af5e, type: 3}
   m_SortingOrder: 0
   m_WorldSpaceSizeMode: 1
   m_WorldSpaceWidth: 1920
