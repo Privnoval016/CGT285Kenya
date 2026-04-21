@@ -32,6 +32,9 @@ public class TeleportBeacon : NetworkBehaviour
     /** True once teleport has been used (beacon consumed). */
     [Networked] public NetworkBool WasUsed { get; set; }
 
+    /** Networked spawn position - ensures beacon appears at correct location on all clients. */
+    [Networked] public Vector3 NetworkPosition { get; set; }
+
     #endregion
 
     #region Fusion Lifecycle
@@ -39,14 +42,17 @@ public class TeleportBeacon : NetworkBehaviour
     public override void Spawned()
     {
         if (visual != null) visual.SetActive(true);
+        
+        transform.position = NetworkPosition;
     }
 
     public override void FixedUpdateNetwork()
     {
+        transform.position = NetworkPosition;
+        
         if (!Object.HasStateAuthority) return;
         if (WasUsed) return;
 
-        // Auto-expire beacon if timer runs out before player uses it.
         if (ExpiryTimer.Expired(Runner))
         {
             NotifyOwnerBeaconExpired();

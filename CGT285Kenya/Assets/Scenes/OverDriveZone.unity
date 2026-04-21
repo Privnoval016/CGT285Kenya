@@ -545,7 +545,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   movementJoystick: {fileID: 3457333899160804959}
   aimJoystick: {fileID: 2028650286}
-  abilityButton: {fileID: 0}
+  abilityButton: {fileID: 1770234371}
   useKeyboardInput: 1
   gameCamera: {fileID: 0}
 --- !u!4 &236762367
@@ -3571,7 +3571,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.6792453, g: 0.6792453, b: 0.6792453, a: 0.45490196}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:

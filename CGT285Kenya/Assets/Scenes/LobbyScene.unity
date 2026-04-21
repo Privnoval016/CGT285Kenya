@@ -584,6 +584,81 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1618142835
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1618142837}
+  - component: {fileID: 1618142836}
+  m_Layer: 0
+  m_Name: AbilityUI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1618142836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618142835}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f8c4e3586d04ef896a2d7905d4ec5ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  uiComponents: {fileID: 810048892}
+  dashAbilityTemplate:
+    abilityName: Super Dash
+    cooldownDuration: 5
+    abilityIcon: {fileID: 0}
+    dashDuration: 0.35
+    dashSpeedMultiplier: 3.5
+    standingStillThreshold: 0.1
+  teleportAbilityTemplate:
+    abilityName: Teleport
+    cooldownDuration: 5
+    abilityIcon: {fileID: 0}
+    beaconLifetime: 10
+    beaconPrefab: {fileID: 6468922733072808544, guid: eddd9b94a92d441c19c3cbeb05cbf6de, type: 3}
+  enlargeAbilityTemplate:
+    abilityName: Enlarge
+    cooldownDuration: 5
+    abilityIcon: {fileID: 0}
+    enlargeDuration: 5
+    enlargeScaleMultiplier: 1.8
+    enlargeInterceptMultiplier: 1.6
+    enlargeShotChargeMultiplier: 1.75
+  obstructionAbilityTemplate:
+    abilityName: Obstruction
+    cooldownDuration: 5
+    abilityIcon: {fileID: 0}
+    placementRange: 6
+    blockPrefab: {fileID: 3286940185186712744, guid: 0a69afc46e4b943bb8c10bec293bc7a7, type: 3}
+    rangeIndicatorPrefab: {fileID: 9165050679234954701, guid: 3024d4e3fc459450ba4b68b4c4288619, type: 3}
+    cancelCooldown: 3
+  defaultAbility: 0
+--- !u!4 &1618142837
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618142835}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -593,3 +668,4 @@ SceneRoots:
   - {fileID: 810048891}
   - {fileID: 1326625429}
   - {fileID: 1083563870}
+  - {fileID: 1618142837}

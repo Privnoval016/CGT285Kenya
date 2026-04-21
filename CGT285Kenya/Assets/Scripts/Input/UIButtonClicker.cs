@@ -17,7 +17,7 @@ public class UIButtonClicker : MonoBehaviour, IPointerClickHandler
     {
         if (eventData.pointerClick == gameObject)
         {
-            OnClick.Invoke();
+            //OnClick.Invoke();
         }
     }
 

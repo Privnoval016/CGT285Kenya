@@ -12,11 +12,6 @@ using UnityEngine.SceneManagement;
  */
 public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
 {
-    [Header("Ability Assignment")]
-    [Tooltip(
-        "Defines which ability each player slot receives. Assign the same config asset here and on the player prefab's AbilityController.")]
-    [SerializeField]
-    private AbilityAssignmentConfig abilityConfig;
 
     [Header("Spawn Configuration")]
     [Tooltip(
@@ -24,9 +19,8 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField]
     private SpawnPointConfig spawnPointConfig;
 
-    // No joinCount needed — we derive the ability index from player.PlayerId directly.
-    // PlayerId is globally unique and starts at 1, so (PlayerId - 1) is a stable 0-based index
-    // that is identical on every client, ensuring all peers agree on who gets which ability.
+    // No joinCount needed — player ability assignment is handled by default and UI buttons.
+    // All players spawn with Dash (index 0), then can switch via AbilityUIHandler.
     /**
      * <summary>
      * Called when a player joins the session.
@@ -138,23 +132,24 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                 var netPlayer = spawnedPlayer.GetComponent<NetworkPlayer>();
 
                 /* ONLY assign ability in game scene, not in lobby */
-                if (!isLobby && abilityConfig != null && netPlayer != null)
+                if (!isLobby && netPlayer != null)
                 {
                     var ac = netPlayer.GetComponent<AbilityController>();
                     if (ac != null)
                     {
-                        /* Get playersPerTeam from runner */
-                        int playersPerTeam = 3;
-                        if (runner != null && runner.SessionInfo != null)
-                        {
-                            playersPerTeam = runner.SessionInfo.MaxPlayers / 2;
-                        }
+                        /* Print all preferences for debugging */
+                        AbilityUIHandler.PrintAllPreferences();
 
-                        /* Calculate ability index: playerId is 1-based, convert to 0-based */
-                        int abilityIndex = (player.PlayerId - 1) % abilityConfig.Abilities.Count;
-                        ac.AssignAbility(abilityIndex);
+                        /* Check if player has a stored preference from lobby */
+                        int storedAbilityIndex = AbilityUIHandler.GetStoredAbilityPreference(player);
+                        int abilityToAssign = (storedAbilityIndex >= 0) ? storedAbilityIndex : 0; /* Default to Dash (0) */
+
                         Debug.Log(
-                            $"[NetworkCallback] Player {player.PlayerId} assigned ability index {abilityIndex} (playersPerTeam={playersPerTeam})");
+                            $"[NetworkCallback] Player {player.PlayerId} in game scene - attempting to assign ability {abilityToAssign} (stored preference: {storedAbilityIndex})");
+
+                        ac.AssignAbility(abilityToAssign);
+                        Debug.Log(
+                            $"[NetworkCallback] Player {player.PlayerId} assigned ability index {abilityToAssign}");
                     }
                     else
                     {
@@ -348,6 +343,8 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         Debug.Log("[NetworkCallback] Game scene loaded, handling player transition");
+        Debug.Log("[NetworkCallback] Printing all stored ability preferences before spawning...");
+        AbilityUIHandler.PrintAllPreferences();
 
         /* Despawn all lobby players (they were spawned by each client locally in lobby) */
         var allPlayers = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);

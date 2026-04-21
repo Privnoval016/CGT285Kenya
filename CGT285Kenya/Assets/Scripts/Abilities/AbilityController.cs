@@ -7,14 +7,13 @@ using Fusion;
  *
  * Responsibilities:
  *   - Holds the single [Networked] CooldownTimer so cooldown state is replicated.
- *   - Receives an ability assignment from AbilityAssignmentConfig at spawn time.
+ *   - Receives ability assignments via RPC from AbilityUIHandler or NetworkCallbackHandler.
  *   - Forwards FixedUpdateNetwork ticks and input events to the active ability.
  *   - Provides an AbilityContext snapshot every tick so abilities never hold stale refs.
  *
  * Networked state:
  *   CooldownTimer  — replicated; readable by all peers for UI display.
- *   AbilityIndex   — replicated index into AbilityAssignmentConfig.Abilities so
- *                    every peer renders the correct ability icon.
+ *   AbilityIndex   — replicated index (0=Dash, 1=Teleport, 2=Enlarge, 3=Obstruction).
  *
  * Execution authority:
  *   TryUseAbility() is called from NetworkPlayer.FixedUpdateNetwork() which already
@@ -22,18 +21,15 @@ using Fusion;
  *   For abilities that need server-side effects (spawning, teleport) the concrete
  *   ability sends an RPC from within Execute().
  *
- * Assignment timing note:
- *   NetworkCallbackHandler.SpawnPlayer calls AssignAbility() immediately after
- *   runner.Spawn() returns, before Spawned() fires.  We must NOT reset AbilityIndex
- *   inside Spawned() or we would overwrite that assignment.  Instead Spawned() only
- *   calls RebuildAbilityInstance() to materialise whatever index is already set.
+ * Assignment model:
+ *   - NetworkCallbackHandler assigns Dash (index 0) as default on spawn.
+ *   - AbilityUIHandler can change abilities via RPC_AssignAbilityByType().
+ *   - All clients rebuild their ability instance when AbilityIndex changes via Render().
  * </summary>
  */
 [RequireComponent(typeof(NetworkPlayer))]
 public class AbilityController : NetworkBehaviour
 {
-    [Header("Ability Assignment")]
-    [SerializeField] private AbilityAssignmentConfig assignmentConfig;
 
     #region Networked State
 
@@ -47,9 +43,8 @@ public class AbilityController : NetworkBehaviour
 
     /**
      * <summary>
-     * Index into AbilityAssignmentConfig.Abilities assigned at spawn time.
+     * Index representing the active ability (0=Dash, 1=Teleport, 2=Enlarge, 3=Obstruction).
      * Replicated so all clients can display the correct ability name/icon.
-     * -1 means no ability assigned (the network default for int).
      * </summary>
      */
     [Networked] public int AbilityIndex { get; set; }
@@ -111,20 +106,31 @@ public class AbilityController : NetworkBehaviour
 
     /**
      * <summary>
-     * Assigns an ability by index into the AssignmentConfig.
+     * Assigns an ability by index.
      * Must be called on the object's state authority (the owning client in Shared mode).
      * Safe to call immediately after runner.Spawn() returns — will not be overwritten
-     * by Spawned() because Spawned() no longer resets AbilityIndex.
+     * by Spawned() because Spawned() only calls RebuildAbilityInstance().
      * </summary>
-     * <param name="index">Index into AbilityAssignmentConfig.Abilities.</param>
+     * <param name="index">Ability index (0=Dash, 1=Teleport, 2=Enlarge, 3=Obstruction).</param>
      */
     public void AssignAbility(int index)
     {
         if (!Object.HasStateAuthority) return;
         AbilityIndex = index;
-        // Immediately rebuild on the authority client; other clients will
-        // see the change via Render() on the next tick.
         RebuildAbilityInstance();
+    }
+
+    /**
+     * <summary>
+     * RPC for UI-based ability assignment. Routes the request to state authority
+     * which then updates AbilityIndex on all clients via Render().
+     * </summary>
+     * <param name="abilityType">Ability type index (0=Dash, 1=Teleport, 2=Enlarge, 3=Obstruction).</param>
+     */
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RPC_AssignAbilityByType(int abilityType)
+    {
+        AbilityIndex = abilityType;
     }
 
     /**
@@ -208,6 +214,7 @@ public class AbilityController : NetworkBehaviour
         if (beacon == null) return;
 
         beacon.OwnerRef = ownerRef;
+        beacon.NetworkPosition = position;
         beacon.ExpiryTimer = TickTimer.CreateFromSeconds(Runner, beaconAbility.BeaconLifetime);
 
         RPC_NotifyBeaconSpawned(beacon.Object, ownerRef);
@@ -266,7 +273,10 @@ public class AbilityController : NetworkBehaviour
             return;
         }
 
-        Runner.Spawn(prefab, position, Quaternion.identity);
+        ObstructionBlock block = Runner.Spawn(prefab, position, Quaternion.identity);
+        if (block == null) return;
+        
+        block.NetworkPosition = position;
     }
 
     #endregion
@@ -287,17 +297,35 @@ public class AbilityController : NetworkBehaviour
         lastBuiltIndex = idx;
         activeAbility  = null;
 
-        if (assignmentConfig == null) return;
-
-        AbilityBase template = assignmentConfig.GetAbility(idx);
+        AbilityBase template = GetAbilityByIndex(idx);
         if (template == null) return;
 
-        string json = UnityEngine.JsonUtility.ToJson(template);
+        string json = JsonUtility.ToJson(template);
         activeAbility = (AbilityBase)System.Activator.CreateInstance(template.GetType());
-        UnityEngine.JsonUtility.FromJsonOverwrite(json, activeAbility);
+        JsonUtility.FromJsonOverwrite(json, activeAbility);
 
         activeAbility.Initialize(this);
         Debug.Log($"[AbilityController] Player {(Object != null ? Object.InputAuthority.PlayerId.ToString() : "?")} equipped {activeAbility.AbilityName} (index {idx})");
+    }
+
+    /**
+     * <summary>
+     * Direct ability lookup by type index (used by UI-based assignment).
+     * Returns the built-in ability template by index.
+     * </summary>
+     * <param name="index">Ability type index (0=Dash, 1=Teleport, 2=Enlarge, 3=Obstruction).</param>
+     * <returns>The AbilityBase template.</returns>
+     */
+    private AbilityBase GetAbilityByIndex(int index)
+    {
+        return index switch
+        {
+            0 => new DashAbility(),
+            1 => new TeleportAbility(),
+            2 => new EnlargeAbility(),
+            3 => new ObstructionAbility(),
+            _ => null
+        };
     }
 
     /**

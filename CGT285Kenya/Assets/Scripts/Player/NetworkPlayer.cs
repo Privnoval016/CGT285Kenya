@@ -45,7 +45,10 @@ public class NetworkPlayer : NetworkBehaviour
     [Header("Team Visuals")]
     [SerializeField] private Color team0Color = Color.blue;
     [SerializeField] private Color team1Color = Color.red;
-    [SerializeField] private MeshRenderer visualMesh;
+    [SerializeField] private Renderer visualMesh;
+
+    [Header("Animation")]
+    [SerializeField] private Animator animator;
 
     #region Networked State
 
@@ -59,6 +62,24 @@ public class NetworkPlayer : NetworkBehaviour
      * </summary>
      */
     [Networked] public TickTimer EnlargeTimer { get; set; }
+
+    /**
+     * <summary>
+     * Networked boolean for the "IsRunning" animation parameter.
+     * True when the player is moving, false when idle.
+     * Synchronized across all clients via Render().
+     * </summary>
+     */
+    [Networked] public bool IsAnimatingRun { get; set; }
+
+    /**
+     * <summary>
+     * Networked boolean for the "IsKicking" animation parameter.
+     * True when the player just shot/passed the ball, false otherwise.
+     * Automatically resets after one tick.
+     * </summary>
+     */
+    [Networked] public bool IsAnimatingKick { get; set; }
 
     #endregion
 
@@ -76,11 +97,17 @@ public class NetworkPlayer : NetworkBehaviour
     private float verticalVelocity;
     private int prevTeam = -1;
     private bool prevEnlarged = false;
+    private bool prevAnimatingRun = false;
+    private bool prevAnimatingKick = false;
 
     // Throttle RPC sends — only re-send pickup/steal every few ticks.
     private int lastPickupRpcTick = -100;
     private int lastStealRpcTick = -100;
     private const int RpcResendInterval = 6;
+
+    /* Animator parameter hashes for efficient parameter lookup */
+    private static readonly int AnimHashIsRunning = Animator.StringToHash("IsRunning");
+    private static readonly int AnimHashIsKicking = Animator.StringToHash("IsKicking");
 
     #endregion
 
@@ -132,6 +159,9 @@ public class NetworkPlayer : NetworkBehaviour
         cc = GetComponent<CharacterController>();
         abilityController = GetComponent<AbilityController>();
         baseScale = transform.localScale;
+
+        if (animator == null)
+            animator = GetComponent<Animator>();
     }
 
     #endregion
@@ -173,7 +203,7 @@ public class NetworkPlayer : NetworkBehaviour
     /**
      * <summary>
      * Called every render frame. Used for cosmetic reactions to networked
-     * property changes (team color, enlarge scale) without touching simulation state.
+     * property changes (team color, enlarge scale, animations) without touching simulation state.
      * </summary>
      */
     public override void Render()
@@ -185,6 +215,7 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         UpdateEnlargeVisual();
+        UpdateAnimations();
     }
 
     /**
@@ -224,6 +255,12 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         Vector3 move = moveDir * moveSpeed * speedMultiplier * Runner.DeltaTime;
+
+        /* Update animation based on movement */
+        if (Object.HasStateAuthority)
+        {
+            IsAnimatingRun = moveDir.magnitude > 0.1f;
+        }
 
         if (cc.isGrounded)
             verticalVelocity = -2f;
@@ -304,6 +341,7 @@ public class NetworkPlayer : NetworkBehaviour
                 input.LastAimDirection.x, 0f, input.LastAimDirection.y).normalized;
 
             ReleaseBall(dir, speed);
+            TriggerKickAnimation();
 
             Debug.Log($"[Player] {(isShot ? "SHOT" : "PASS")} " +
                 $"holdDuration={input.AimHoldDuration:F3}s speed={speed:F1}");
@@ -498,6 +536,56 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         Debug.Log($"[NetworkPlayer] {Object.InputAuthority.PlayerId} reset to spawn position: {spawnPosition}");
+    }
+
+    /**
+     * <summary>
+     * Triggers the kick animation by setting IsAnimatingKick for one tick.
+     * Should only be called on the state authority (when the ball is released).
+     * </summary>
+     */
+    private void TriggerKickAnimation()
+    {
+        if (Object.HasStateAuthority)
+        {
+            IsAnimatingKick = true;
+        }
+    }
+
+    /**
+     * <summary>
+     * Updates animator parameters based on networked animation state.
+     * Called every Render() frame to keep visuals in sync across clients.
+     * </summary>
+     */
+    private void UpdateAnimations()
+    {
+        if (animator == null) return;
+
+        /* Update running animation */
+        if (IsAnimatingRun != prevAnimatingRun)
+        {
+            prevAnimatingRun = IsAnimatingRun;
+            animator.SetBool(AnimHashIsRunning, IsAnimatingRun);
+        }
+
+        /* Update kick animation (only lasts one frame/tick) */
+        if (IsAnimatingKick != prevAnimatingKick)
+        {
+            prevAnimatingKick = IsAnimatingKick;
+            animator.SetBool(AnimHashIsKicking, IsAnimatingKick);
+
+            if (IsAnimatingKick)
+            {
+                Debug.Log($"[NetworkPlayer] Kick animation triggered for Player {Object.InputAuthority.PlayerId}");
+            }
+        }
+
+        /* Auto-reset kick animation after one tick */
+        if (IsAnimatingKick && Object.HasStateAuthority)
+        {
+            IsAnimatingKick = false;
+        }
     }
 
     #endregion

@@ -3,18 +3,11 @@ using UnityEngine;
 
 /**
  * <summary>
- * AbilityAssignmentConfig is a ScriptableObject that defines the ordered list
- * of abilities assigned to players as they join.
+ * AbilityAssignmentConfig is a ScriptableObject for fallback ability assignment.
+ * This is primarily used for non-UI-based assignment or as a backup system.
  *
- * Assignment model:
- *   Player 1 gets Abilities[0], player 2 gets Abilities[1], etc.
- *   If there are more players than abilities the list wraps (modulo).
- *   You can reorder the list in the inspector to change who gets what.
- *
- * Usage:
- *   Create via Assets > Create > Soccer > Ability Assignment Config.
- *   Drag the ScriptableObject into AbilityController.assignmentConfig on the
- *   player prefab and into NetworkCallbackHandler.abilityConfig.
+ * For UI-driven ability selection, use AbilityUIHandler instead, which directly
+ * instantiates abilities by type without needing a ScriptableObject config.
  * </summary>
  */
 [CreateAssetMenu(menuName = "Soccer/Ability Assignment Config", fileName = "AbilityAssignmentConfig")]
@@ -27,11 +20,6 @@ public class AbilityAssignmentConfig : ScriptableObject
     /** Read-only view of the ability list for editor tooling. */
     public IReadOnlyList<AbilityBase> Abilities => abilities;
 
-    private int currentAbility = 0;
-    public void SetAbility(int newAbility)
-    {
-        currentAbility = newAbility;
-    }
     /**
      * <summary>
      * Returns the ability template for the given index.
@@ -58,9 +46,8 @@ public class AbilityAssignmentConfig : ScriptableObject
      */
     public int GetAbilityIndex(int joinOrder)
     {
-        /*if (abilities == null || abilities.Count == 0) return -1;
-        return joinOrder % abilities.Count;*/
-        return currentAbility;
+        if (abilities == null || abilities.Count == 0) return 0;
+        return joinOrder % abilities.Count;
     }
 }
 

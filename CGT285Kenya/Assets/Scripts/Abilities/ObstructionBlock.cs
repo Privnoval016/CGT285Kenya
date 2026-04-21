@@ -32,6 +32,9 @@ public class ObstructionBlock : NetworkBehaviour
 
     [Networked] private TickTimer LifetimeTimer { get; set; }
 
+    /** Networked spawn position - ensures block appears at correct location on all clients. */
+    [Networked] public Vector3 NetworkPosition { get; set; }
+
     #endregion
 
     #region Static Registry
@@ -71,6 +74,8 @@ public class ObstructionBlock : NetworkBehaviour
             LifetimeTimer = TickTimer.CreateFromSeconds(Runner, blockLifetime);
 
         if (visual != null) visual.SetActive(true);
+        
+        transform.position = NetworkPosition;
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -80,6 +85,8 @@ public class ObstructionBlock : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
+        transform.position = NetworkPosition;
+        
         if (!Object.HasStateAuthority) return;
 
         if (LifetimeTimer.Expired(Runner))
