@@ -1,17 +1,5 @@
 using UnityEngine;
 
-/**
- * <summary>
- * AbilityFxData holds all the audio/visual assets and tuning values for a
- * single ability event. Every field is exposed directly in the inspector via
- * AbilityFxLibrary, so a designer can tweak any parameter without touching code.
- *
- * VFX are spawned as a new instance of the prefab and left to clean themselves
- * up (e.g. via a Particle System Stop Action → Destroy, or a timed Destroy on
- * the root). They are never networked — each client spawns its own local copy
- * when it receives the broadcast RPC.
- * </summary>
- */
 [System.Serializable]
 public class AbilityFxData
 {

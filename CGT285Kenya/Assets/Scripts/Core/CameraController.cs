@@ -1,12 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/// <summary>
-/// CameraController manages the game camera with a top-down view at a slight angle.
-/// It follows the local player smoothly and keeps the field in view.
-/// 
-/// Pattern: Singleton for easy access
-/// </summary>
 public class CameraController : MonoBehaviour
 {
     [Header("Camera Settings")]

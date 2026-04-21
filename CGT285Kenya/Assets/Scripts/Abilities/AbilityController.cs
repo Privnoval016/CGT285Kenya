@@ -1,32 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * AbilityController is the NetworkBehaviour bridge between Fusion and the ability system.
- *
- * Responsibilities:
- *   - Holds the single [Networked] CooldownTimer so cooldown state is replicated.
- *   - Receives ability assignments via RPC from AbilityUIHandler or NetworkCallbackHandler.
- *   - Forwards FixedUpdateNetwork ticks and input events to the active ability.
- *   - Provides an AbilityContext snapshot every tick so abilities never hold stale refs.
- *
- * Networked state:
- *   CooldownTimer  — replicated; readable by all peers for UI display.
- *   AbilityIndex   — replicated index (0=Dash, 1=Teleport, 2=Enlarge, 3=Obstruction).
- *
- * Execution authority:
- *   TryUseAbility() is called from NetworkPlayer.FixedUpdateNetwork() which already
- *   gates on GetInput(), so it only fires on the InputAuthority client.
- *   For abilities that need server-side effects (spawning, teleport) the concrete
- *   ability sends an RPC from within Execute().
- *
- * Assignment model:
- *   - NetworkCallbackHandler assigns Dash (index 0) as default on spawn.
- *   - AbilityUIHandler can change abilities via RPC_AssignAbilityByType().
- *   - All clients rebuild their ability instance when AbilityIndex changes via Render().
- * </summary>
- */
 [RequireComponent(typeof(NetworkPlayer))]
 public class AbilityController : NetworkBehaviour
 {

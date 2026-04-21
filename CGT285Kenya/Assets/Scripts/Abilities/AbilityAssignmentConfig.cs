@@ -1,15 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/**
- * <summary>
- * AbilityAssignmentConfig is a ScriptableObject for fallback ability assignment.
- * This is primarily used for non-UI-based assignment or as a backup system.
- *
- * For UI-driven ability selection, use AbilityUIHandler instead, which directly
- * instantiates abilities by type without needing a ScriptableObject config.
- * </summary>
- */
 [CreateAssetMenu(menuName = "Soccer/Ability Assignment Config", fileName = "AbilityAssignmentConfig")]
 public class AbilityAssignmentConfig : ScriptableObject
 {

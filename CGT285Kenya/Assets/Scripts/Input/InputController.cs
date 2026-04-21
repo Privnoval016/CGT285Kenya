@@ -1,27 +1,6 @@
 using System;
 using UnityEngine;
 
-/**
- * <summary>
- * InputController is a singleton that manages local player input.
- * It supports both mobile touch controls (virtual joysticks) and keyboard input,
- * packaging everything into a NetworkInputData struct for Fusion.
- *
- * Aim / shoot design:
- *   ReadRawInput() accumulates raw aim state every Update().
- *   GetNetworkInput() is called by Fusion's OnInput callback at tick-rate and
- *   performs release detection atomically, so AimJustReleased appears in
- *   exactly one network tick and is never dropped.
- *
- * Obstruction targeting:
- *   Two separate input paths feed into placement:
- *     - Q press → sets ability1Pressed (enters targeting OR cancels).
- *     - Mouse click while targeting → sets hasPendingAbilityTap (placement confirmation).
- *   The tap is treated as an independent placement trigger; Q is NOT required simultaneously.
- *   Keyboard ray-cast uses a horizontal plane at Y=0 so the range indicator geometry
- *   never intercepts the ray.
- * </summary>
- */
 public class InputController : MonoBehaviour
 {
     public static InputController Instance { get; private set; }
@@ -44,7 +23,6 @@ public class InputController : MonoBehaviour
     private Vector2 rawAimInput;
     private bool ability1Pressed;
 
-    // Obstruction placement tap — set by mouse click, consumed once by GetNetworkInput().
     private Vector3 pendingAbilityTapPosition;
     private bool hasPendingAbilityTap;
 
@@ -159,16 +137,7 @@ public class InputController : MonoBehaviour
 
         prevAimInput = rawAimInput;
     }
-
-    /**
-     * <summary>
-     * Obstruction placement tap via mouse click.
-     * Casts a ray against a horizontal plane at Y=0 so the range indicator
-     * geometry never intercepts it. The hit world position is stored and
-     * consumed independently of the Q ability button.
-     * On mobile, call SetAbilityTapPosition() directly from a touch handler.
-     * </summary>
-     */
+    
     private void ReadObstructionTap()
     {
         if (!useKeyboardInput) return;

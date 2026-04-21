@@ -1,29 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * DashAbility propels the player forward at high speed for a short duration.
- *
- * Behaviour summary:
- *   - On activation the player's speed is overridden for dashDuration seconds.
- *   - Direction: current movement input direction, or last known direction if
- *     standing still.
- *   - During the dash the player can pick up a free ball or steal an opponent's
- *     ball by entering the steal zone at dash speed.
- *   - Cooldown starts when the dash finishes (not when it begins), so the player
- *     always knows they can use the ability for a full dashDuration after pressing it.
- *
- * Network model:
- *   - Execute() fires only on InputAuthority (gated by AbilityController).
- *   - DashTimer and DashDirection are held locally; NetworkPlayer reads
- *     IsDashing / DashSpeedMultiplier each tick to override movement speed.
- *   - No RPC needed: movement is already replicated via NetworkPlayer's
- *     deterministic FixedUpdateNetwork + GetInput() path.
- *
- * All tuning values are serialized and exposed in the inspector.
- * </summary>
- */
 [System.Serializable]
 public class DashAbility : AbilityBase
 {
@@ -37,18 +14,10 @@ public class DashAbility : AbilityBase
     [Tooltip("If movement input is below this magnitude, the last known direction is used instead.")]
     [SerializeField] private float standingStillThreshold = 0.1f;
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Runtime state (non-networked; local to InputAuthority client)
-    // ──────────────────────────────────────────────────────────────────────────
-
     private bool isDashing;
     private float dashEndTime;         // Fusion Runner.SimulationTime
     private Vector3 dashDirection;
     private Vector3 lastKnownMoveDir;
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Public accessors (read by NetworkPlayer each tick)
-    // ──────────────────────────────────────────────────────────────────────────
 
     /** True while the dash is in progress. */
     public bool IsDashing => isDashing;
@@ -68,11 +37,7 @@ public class DashAbility : AbilityBase
      * </summary>
      */
     public Vector3 DashDirection => isDashing ? dashDirection : Vector3.zero;
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // AbilityBase overrides
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /**
      * <summary>
      * Records the move direction when it is non-zero so we have a fallback

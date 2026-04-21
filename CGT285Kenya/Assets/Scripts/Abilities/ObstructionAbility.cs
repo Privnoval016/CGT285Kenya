@@ -1,22 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * ObstructionAbility allows the player to place a solid block obstacle.
- *
- * Interaction flow:
- *   1. Q press → enters Targeting mode. A translucent range circle appears.
- *      Entering targeting is NOT blocked by the cooldown (cooldown only triggers
- *      after placement or cancellation).
- *   2. Mouse click / mobile tap anywhere inside the range circle → placement confirmed.
- *      The tap arrives as a non-zero AbilityTapPosition without the ability button,
- *      processed by NetworkPlayer.ProcessAbility independently of the Q press.
- *   3. Q press again while targeting → cancel; cancelCooldown applied.
- *
- * Block orientation is always Quaternion.identity — never rotates.
- * </summary>
- */
 [System.Serializable]
 public class ObstructionAbility : AbilityBase
 {
@@ -71,14 +55,7 @@ public class ObstructionAbility : AbilityBase
             rangeIndicatorInstance.transform.position = pos;
         }
     }
-
-    /**
-     * <summary>
-     * Called by AbilityBase.TryExecute → Execute when the ability BUTTON is pressed.
-     * - Not targeting → enter targeting (bypasses cooldown via TryExecuteAtPosition override).
-     * - Targeting → cancel with penalty cooldown.
-     * </summary>
-     */
+    
     protected override void Execute(AbilityContext context)
     {
         if (!isTargeting)
@@ -94,19 +71,7 @@ public class ObstructionAbility : AbilityBase
             Debug.Log("[ObstructionAbility] Targeting cancelled, short cooldown applied.");
         }
     }
-
-    /**
-     * <summary>
-     * Main entry point called by AbilityController.TryUseAbility().
-     *
-     * Two cases:
-     *   A) worldPosition == Vector3.zero (button press, no tap) → button-press dispatch.
-     *      If not targeting, enter targeting WITHOUT checking cooldown.
-     *      If targeting, cancel with penalty.
-     *   B) worldPosition != Vector3.zero (tap, possibly with button) → placement attempt.
-     *      Only acts if currently targeting; validates range then places.
-     * </summary>
-     */
+    
     public override bool TryExecuteAtPosition(AbilityContext context, Vector3 worldPosition)
     {
         bool hasTapPos = worldPosition != Vector3.zero;
@@ -132,10 +97,8 @@ public class ObstructionAbility : AbilityBase
             return false;
         }
 
-        // Case A: button-only press.
         if (!isTargeting)
         {
-            // Enter targeting without cooldown check — cooldown only applies after placement/cancel.
             EnterTargeting(context);
             return true;
         }
