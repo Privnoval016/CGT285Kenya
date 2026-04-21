@@ -1,0 +1,22 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI/Button.uss?fileID=7433441132597879392&amp;guid=d260e77d6871a0b4da378b81e77dfe25&amp;type=3#Button" />
+    <ui:VisualElement style="flex-grow: 1; background-color: rgb(108, 108, 108);">
+<<<<<<< Updated upstream:CGT285Kenya/Assets/UI/Play_UI.uxml
+        <ui:VisualElement name="MainContainer" style="flex-grow: 1; width: 100%; justify-content: flex-end; align-items: center; margin-top: 0; margin-right: 0%; margin-bottom: 0; margin-left: 0%; align-self: center; height: 100px; background-position-x: center 0;">
+=======
+        <ui:VisualElement name="MainContainer" style="flex-grow: 1; width: 100%; justify-content: flex-end; align-items: center; margin-top: 0; margin-right: 0%; margin-bottom: 0; margin-left: 0%; align-self: center; height: 100px; background-position-x: center 0; background-color: rgba(55, 55, 55, 0); -unity-background-image-tint-color: rgba(255, 255, 255, 0);">
+>>>>>>> Stashed changes:CGT285Kenya/Assets/UI/UI_Play.uxml
+            <ui:VisualElement name="AbilitySelectContainer" style="flex-grow: 1; width: 144px; align-self: flex-start; align-items: flex-start; left: 0%; top: 0%;">
+                <ui:Label text="Ability Select" name="Label" style="align-items: center; align-self: center;" />
+                <ui:Button text="Dash" emoji-fallback-support="false" name="Dash" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: auto; bottom: auto; width: 110px; border-left-color: rgb(0, 38, 212); border-right-color: rgb(0, 38, 212); border-top-color: rgb(0, 38, 212); border-bottom-color: rgb(0, 38, 212); justify-content: flex-start; align-self: center; top: 0%;" />
+                <ui:Button text="Obstruction" emoji-fallback-support="false" name="Obstruction" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: auto; bottom: auto; align-items: auto; justify-content: flex-start; align-self: center; width: 110px; top: 0%;" />
+                <ui:Button text="Teleport" emoji-fallback-support="false" name="Teleport" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: auto; bottom: auto; width: 110px; align-self: center; top: 0%;" />
+                <ui:Button text="Enlarge" emoji-fallback-support="false" name="Enlarge" class="AbilityButton" style="-unity-text-align: middle-center; white-space: nowrap; left: auto; bottom: auto; width: 110px; top: 0%; align-self: center;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="PlayContainer" style="flex-grow: 1; align-self: flex-start; justify-content: center; align-items: stretch; right: 0; left: 0%; top: auto; bottom: 0%; margin-left: 10px;">
+                <ui:Button text="Play" name="Play" class="PlayButton" style="width: 268px; align-self: flex-end;" />
+                <ui:TextField label="Lobby Code" placeholder-text="ex: 1111" name="LobbyCode" style="background-position-y: center 0; translate: 0 0;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

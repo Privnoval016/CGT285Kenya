@@ -1,0 +1,23 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI/Button.uss?fileID=7433441132597879392&amp;guid=d260e77d6871a0b4da378b81e77dfe25&amp;type=3#Button" />
+    <ui:VisualElement name="mainContainer" style="flex-grow: 1; background-color: rgb(109, 109, 109);">
+        <ui:VisualElement name="TitleContainer" style="flex-grow: 1;">
+            <ui:Label text="Chose Your Power&#10;" name="Title" style="align-self: center; background-size: 100% 100%; scale: 2 2; background-color: rgba(0, 0, 0, 0);" />
+        </ui:VisualElement>
+        <ui:VisualElement name="AbilityContainer" style="flex-grow: 1; width: 140px;">
+            <ui:Button text="Button" name="B_Dash" class="AbilityButton" />
+            <ui:Button text="Button" name="B_Obstruction" class="AbilityButton" />
+            <ui:Button text="Button" name="B_Teleport" class="AbilityButton" />
+            <ui:Button text="Button" name="Enlarge" class="AbilityButton" />
+        </ui:VisualElement>
+        <ui:VisualElement name="AbilityInfoContainer" style="flex-grow: 1; align-self: flex-end;">
+            <ui:VisualElement name="AbilityImage" style="flex-grow: 1;" />
+            <ui:VisualElement name="AbilityDescriptionContainer" style="flex-grow: 1;">
+                <ui:Label text="Label" name="AbilityDescription" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement style="flex-grow: 1; width: 230px; align-items: stretch; justify-content: flex-end;">
+            <ui:Button text="Button" name="B_MM" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
