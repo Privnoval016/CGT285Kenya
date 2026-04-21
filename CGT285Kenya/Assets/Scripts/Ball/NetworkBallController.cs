@@ -1,39 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * NetworkBallController manages the shared soccer ball.
- *
- * Fusion Shared Mode authority model:
- *   The ball's NetworkObject is owned by the master client. ALL state changes
- *   route through RPCs targeting StateAuthority so writes always happen on the
- *   correct peer.
- *
- * Physics model:
- *   The Rigidbody is permanently kinematic. Position is integrated manually
- *   using [Networked] BallVelocity. NetworkTransform handles interpolation
- *   on non-authority clients.
- *
- * Collider — IsTrigger = true:
- *   The SphereCollider MUST be set to IsTrigger on the prefab.
- *   This prevents CharacterController from physically colliding with the ball
- *   (which causes the player to fly during a dash or normal movement).
- *   All pickup, steal, and goal detection is done in code via distance checks
- *   and OnTriggerEnter, so physics collision is not needed.
- *
- * Client-side visual smoothing:
- *   Non-authority clients receive ball state updates every network tick.
- *   Between ticks the Render() method extrapolates the visual position using
- *   the replicated BallVelocity, so the ball appears to move smoothly without
- *   waiting for the next snapshot.  When held, it snaps to the expected hold
- *   position computed from the replicated holder transform.
- *
- * Prefab requirements:
- *   Rigidbody (isKinematic=true, useGravity=false, freeze rotation),
- *   NetworkObject, NetworkTransform, SphereCollider (IsTrigger=TRUE).
- * </summary>
- */
 [RequireComponent(typeof(Rigidbody))]
 public class NetworkBallController : NetworkBehaviour
 {
@@ -99,8 +66,6 @@ public class NetworkBallController : NetworkBehaviour
         rb.freezeRotation = true;
 
         sphereCollider = GetComponent<SphereCollider>();
-        // Ball MUST be a trigger so CharacterControllers pass through it.
-        // All interaction (pickup, steal, goal) is detected in code.
         if (sphereCollider != null)
             sphereCollider.isTrigger = true;
     }
@@ -134,32 +99,13 @@ public class NetworkBallController : NetworkBehaviour
         // non-authority clients can use it as an extrapolation base.
         SimPosition = transform.position;
     }
-
-    /**
-     * <summary>
-     * Visual update for non-authority clients.
-     *
-     * Held ball:
-     *   Snaps directly to the exact expected hold position computed from the
-     *   holder's current rendered transform every frame. No smoothing is applied
-     *   because the holder's NetworkTransform already handles interpolation — any
-     *   additional smoothing on the ball only adds lag on top of lag.
-     *
-     * Free ball:
-     *   Linearly extrapolates between the last two authoritative SimPosition
-     *   snapshots using Runner.InterpolationFactor (0→1 across one tick interval).
-     *   This fills the inter-tick gap so the ball moves at the correct speed
-     *   between server updates without waiting for the next packet.
-     * </summary>
-     */
+    
     public override void Render()
     {
         if (Object.HasStateAuthority) return;
 
         if (IsHeld && CurrentHolder != null)
         {
-            // Direct snap — no MoveTowards. The holder is already interpolated by
-            // Fusion's NetworkTransform, so chaining a smooth here only adds delay.
             Vector3 target = CurrentHolder.transform.position
                 + CurrentHolder.transform.forward * holdForwardOffset;
             target.y = CurrentHolder.transform.position.y + 0.1f;
@@ -167,9 +113,6 @@ public class NetworkBallController : NetworkBehaviour
         }
         else
         {
-            // Inter-tick linear extrapolation.
-            // Alpha is how far we are through the current tick interval (0→1),
-            // computed from the real frame delta vs the fixed sim delta.
             float alpha = Mathf.Clamp01(Time.deltaTime / Runner.DeltaTime);
             Vector3 extrapolated = SimPosition + BallVelocity * (Runner.DeltaTime * alpha);
 

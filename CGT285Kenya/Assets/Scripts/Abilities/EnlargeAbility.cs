@@ -1,28 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * EnlargeAbility increases the player's physical size for a limited duration.
- *
- * Effects while enlarged:
- *   - Visual scale multiplied by enlargeScaleMultiplier.
- *   - Ball steal/intercept radius multiplied by enlargeInterceptMultiplier
- *     (applied via NetworkPlayer.AdditionalInterceptRadius).
- *   - Shot charge speed multiplied by enlargeShotChargeMultiplier
- *     (applied via NetworkPlayer.ShotChargeSpeedMultiplier).
- *
- * Network model:
- *   - The enlarge state (IsEnlarged + remaining time) is replicated via
- *     [Networked] EnlargeTimer on the AbilityController is NOT used here since
- *     AbilityController's CooldownTimer is for the cooldown.  Instead we store
- *     a separate TickTimer as a [Networked] property on the player via
- *     NetworkPlayer.EnlargeTimer, updated through RPC.
- *   - Visual scale change is applied locally by NetworkPlayer.Render() reading
- *     the timer, so it appears on all clients.
- *   - Stat multipliers are read by NetworkPlayer.FixedUpdateNetwork() each tick.
- * </summary>
- */
 [System.Serializable]
 public class EnlargeAbility : AbilityBase
 {
@@ -38,11 +16,7 @@ public class EnlargeAbility : AbilityBase
 
     [Tooltip("Multiplier applied to shot charge speed while enlarged (shot fires sooner on hold).")]
     [SerializeField] private float enlargeShotChargeMultiplier = 1.75f;
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Public accessors (read by NetworkPlayer)
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /** Uniform scale multiplier while enlarged, 1 otherwise. */
     public float ScaleMultiplier       => enlargeScaleMultiplier;
 
@@ -51,11 +25,7 @@ public class EnlargeAbility : AbilityBase
 
     /** Shot charge speed multiplier while enlarged, 1 otherwise. */
     public float ShotChargeMultiplier  => enlargeShotChargeMultiplier;
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // AbilityBase overrides
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /**
      * <summary>
      * Activates the enlarged state by writing the timer on the NetworkPlayer

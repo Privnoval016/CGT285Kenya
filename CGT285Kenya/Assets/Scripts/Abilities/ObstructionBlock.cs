@@ -1,23 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * ObstructionBlock is a short-lived networked obstacle placed by ObstructionAbility.
- *
- * Properties:
- *   - Square collider, slightly larger than a player.
- *   - Fixed rotation (always axis-aligned) — set at spawn time, never changes.
- *   - Blocks both players and ball movement via its BoxCollider.
- *   - Despawns when: the blockLifetime timer expires, or a goal is scored
- *     (GameManager calls DespawnAll() on all active blocks).
- *
- * Network model:
- *   - State authority is the master client (spawner).
- *   - All other clients receive the object through Fusion's standard replication.
- *   - No custom networked properties needed beyond transform (handled by NetworkTransform).
- * </summary>
- */
 [RequireComponent(typeof(NetworkObject))]
 public class ObstructionBlock : NetworkBehaviour
 {

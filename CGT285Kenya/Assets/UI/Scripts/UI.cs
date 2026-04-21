@@ -5,10 +5,10 @@ using UnityEngine.SceneManagement;
 public class UI : MonoBehaviour
 {
     public Button play;
-    public Button enlarge; // TODO
-    public Button teleport; // TODO
-    public Button dash; // TODO
-    public Button obstruction; // TODO
+    public Button enlarge;
+    public Button teleport; 
+    public Button dash; 
+    public Button obstruction; 
     public TextField code;
 
     public Label statusText;

@@ -1,29 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * AbilityFxPlayer is the single networked hub for playing cosmetic ability
- * feedback across all clients.
- *
- * Network model:
- *   Any client (InputAuthority of the caster) calls RPC_PlayFx() which is
- *   routed to ALL peers (RpcSources.All → RpcTargets.All). Every peer then
- *   instantiates the VFX prefab and plays the audio clip locally using a
- *   temporary AudioSource. No [Networked] state is required because these
- *   effects are cosmetic-only — a late-joining client simply misses past
- *   events, which is acceptable.
- *
- * Scene setup:
- *   Place this component on a persistent scene NetworkObject (e.g. the
- *   GameManager object or a dedicated FxManager object). Assign one
- *   AbilityFxLibrary asset in the inspector.
- *
- * Designer workflow:
- *   All tuning lives in the AbilityFxLibrary ScriptableObject. The designer
- *   never needs to modify this script.
- * </summary>
- */
 public class AbilityFxPlayer : NetworkBehaviour
 {
     [Header("FX Library")]
@@ -34,11 +11,7 @@ public class AbilityFxPlayer : NetworkBehaviour
     [Tooltip("AudioSource used as a template for one-shot effect playback. Does not need to be playing.")]
     [SerializeField] private AudioSource audioSourceTemplate;
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Singleton access
-    // ──────────────────────────────────────────────────────────────────────────
 
-    /** Scene-singleton reference. Valid after Spawned(). */
     public static AbilityFxPlayer Instance { get; private set; }
 
     public override void Spawned()
@@ -55,11 +28,7 @@ public class AbilityFxPlayer : NetworkBehaviour
     {
         if (Instance == this) Instance = null;
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Public API — called by abilities
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /**
      * <summary>
      * Broadcasts a request to all clients to play the FX for the given event
@@ -75,11 +44,7 @@ public class AbilityFxPlayer : NetworkBehaviour
         if (!Object.IsValid) return;
         RPC_PlayFx((int)fxEvent, worldPosition);
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // RPC
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /**
      * <summary>
      * Received on every connected client. Looks up the FX data and plays
@@ -106,11 +71,7 @@ public class AbilityFxPlayer : NetworkBehaviour
         PlayAudio(data, position);
         SpawnVfx(data, position);
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Local playback helpers
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     private void PlayAudio(AbilityFxData data, Vector3 position)
     {
         if (data.sfxClip == null) return;

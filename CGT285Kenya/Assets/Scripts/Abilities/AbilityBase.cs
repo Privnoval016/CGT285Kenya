@@ -1,24 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * AbilityBase is the abstract base class for all player abilities.
- *
- * Design Patterns:
- *   Strategy – each concrete subclass is a swappable strategy.
- *   Template Method – TryExecute() calls the abstract Execute() hook.
- *
- * Network safety:
- *   Cooldown is tracked via a Fusion TickTimer stored on the owning
- *   AbilityController (a NetworkBehaviour), so it is replicated and
- *   deterministic across all peers. AbilityBase itself is a plain C# class
- *   and holds no [Networked] state of its own.
- *
- *   Execute() is only ever called on the client that has InputAuthority,
- *   so side-effects (RPCs, spawns) are triggered exactly once.
- * </summary>
- */
 [System.Serializable]
 public abstract class AbilityBase
 {
@@ -26,10 +8,6 @@ public abstract class AbilityBase
     [SerializeField] protected string abilityName    = "Unnamed Ability";
     [SerializeField] protected float  cooldownDuration = 5f;
     [SerializeField] protected Sprite abilityIcon;
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Runtime state — injected by AbilityController.Initialize()
-    // ──────────────────────────────────────────────────────────────────────────
 
     /** The controller that owns this ability; used to read/write the TickTimer. */
     protected AbilityController Controller;
@@ -70,11 +48,7 @@ public abstract class AbilityBase
             return Controller.CooldownTimer.RemainingTime(Controller.Runner) ?? 0f;
         }
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Lifecycle
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /**
      * <summary>
      * Binds this ability to its owning AbilityController.
@@ -153,11 +127,7 @@ public abstract class AbilityBase
     {
         cooldownDuration = Mathf.Max(0f, cooldownDuration);
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Abstract hooks
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /**
      * <summary>
      * Core ability logic implemented by each concrete subclass.

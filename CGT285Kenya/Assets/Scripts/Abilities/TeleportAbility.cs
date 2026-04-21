@@ -1,32 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * <summary>
- * TeleportAbility implements a two-stage teleport mechanic.
- *
- * Stage 1 (beacon placement):
- *   First activation places a TeleportBeacon at the player's current position.
- *   The beacon persists for beaconLifetime seconds.  No cooldown starts here.
- *
- * Stage 2 (teleport):
- *   Second activation teleports the player to the beacon and despawns it.
- *   Cooldown starts after teleporting.
- *
- * Beacon expiry:
- *   If beaconLifetime expires before the player teleports, the beacon despawns
- *   automatically and cooldown starts via TeleportBeacon.RPC_TriggerExpiryCooldown().
- *
- * Network model:
- *   - Stage transitions and beacon spawn/despawn happen via RPCs routed to
- *     StateAuthority so the shared simulation stays consistent.
- *   - The ability tracks Stage locally (InputAuthority) and via a [Networked]
- *     property on AbilityController (AbilityIndex is already synced; the Stage
- *     is communicated implicitly by whether a beacon exists).
- *   - Teleport position is applied by setting the player's CharacterController
- *     warp position, which is then propagated by NetworkTransform.
- * </summary>
- */
 [System.Serializable]
 public class TeleportAbility : AbilityBase
 {
@@ -37,29 +11,18 @@ public class TeleportAbility : AbilityBase
     [Tooltip("Prefab for the beacon NetworkObject. Must have TeleportBeacon + NetworkObject components.")]
     [SerializeField] private GameObject beaconPrefab;
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Public accessors (used by AbilityController RPCs)
-    // ──────────────────────────────────────────────────────────────────────────
-
     /** The beacon prefab; read by AbilityController.RPC_SpawnBeacon(). */
     public TeleportBeacon GetBeaconPrefab() => beaconPrefab.GetComponent<TeleportBeacon>();
 
     /** Beacon auto-expiry duration; read by AbilityController.RPC_SpawnBeacon(). */
     public float BeaconLifetime => beaconLifetime;
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Local runtime state (InputAuthority client only)
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     /** True when a beacon has been placed and is awaiting teleport. */
     private bool beaconPlaced;
 
     /** Cached reference to the spawned beacon (may be null if not yet resolved). */
     private TeleportBeacon activeBeacon;
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // AbilityBase overrides
-    // ──────────────────────────────────────────────────────────────────────────
 
     /**
      * <summary>
@@ -94,11 +57,7 @@ public class TeleportAbility : AbilityBase
         else
             DoTeleport(context);
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Private helpers
-    // ──────────────────────────────────────────────────────────────────────────
-
+    
     private void PlaceBeacon(AbilityContext context)
     {
         if (beaconPrefab == null)

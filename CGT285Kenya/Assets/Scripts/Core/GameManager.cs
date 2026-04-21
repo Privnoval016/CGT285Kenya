@@ -1,16 +1,6 @@
 using UnityEngine;
 using Fusion;
 
-/**
- * GameManager is the central authority for match state and game flow.
- * It's a singleton that manages score, match time, and game events.
- *
- * Pattern: Singleton for global access
- * Fusion: Uses [Networked] properties to sync game state across all clients
- *
- * IMPORTANT: GameManager MUST have a NetworkObject component in the scene!
- * This is automatically enforced by the [RequireComponent] attribute.
- */
 [RequireComponent(typeof(NetworkObject))]
 public class GameManager : NetworkBehaviour
 {

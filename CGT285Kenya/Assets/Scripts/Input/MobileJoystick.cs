@@ -2,12 +2,6 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-/// <summary>
-/// MobileJoystick provides a virtual joystick for mobile touch input.
-/// It can be used in both fixed and floating modes.
-/// 
-/// Architecture: Standalone component that can be easily placed in UI
-/// </summary>
 public class MobileJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler
 {
     [Header("Joystick Components")]
@@ -19,12 +13,10 @@ public class MobileJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHand
     [SerializeField] private bool _floatingJoystick = false;
     [SerializeField] private float _deadZone = 0.1f;
     
-    // State
     private Vector2 _inputDirection = Vector2.zero;
     private bool _isActive = false;
     private Vector2 _joystickStartPosition;
     
-    // Properties
     public Vector2 Direction => _inputDirection.magnitude > _deadZone ? _inputDirection : Vector2.zero;
     public bool IsActive => _isActive;
     
@@ -40,7 +32,6 @@ public class MobileJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHand
     {
         _isActive = true;
         
-        // For floating joystick, move to touch position
         if (_floatingJoystick && _joystickBackground != null)
         {
             Vector2 localPoint;
@@ -61,13 +52,11 @@ public class MobileJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         _isActive = false;
         _inputDirection = Vector2.zero;
         
-        // Reset handle to center
         if (_joystickHandle != null)
         {
             _joystickHandle.anchoredPosition = Vector2.zero;
         }
         
-        // Reset floating joystick position
         if (_floatingJoystick && _joystickBackground != null)
         {
             _joystickBackground.anchoredPosition = _joystickStartPosition;
@@ -87,20 +76,16 @@ public class MobileJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             out localPoint
         );
         
-        // Calculate direction and clamp to handle range
         Vector2 direction = localPoint;
         float magnitude = direction.magnitude;
         
-        // Normalize and clamp
         if (magnitude > _handleRange)
         {
             direction = direction.normalized * _handleRange;
         }
         
-        // Update handle position
         _joystickHandle.anchoredPosition = direction;
         
-        // Calculate input direction (normalized)
         _inputDirection = direction / _handleRange;
     }
 }
