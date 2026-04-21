@@ -137,24 +137,13 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
                     var ac = netPlayer.GetComponent<AbilityController>();
                     if (ac != null)
                     {
-                        /* Print all preferences for debugging */
-                        AbilityUIHandler.PrintAllPreferences();
-
-                        /* Check if player has a stored preference from lobby */
-                        int storedAbilityIndex = AbilityUIHandler.GetStoredAbilityPreference(player);
-                        int abilityToAssign = (storedAbilityIndex >= 0) ? storedAbilityIndex : 0; /* Default to Dash (0) */
-
-                        Debug.Log(
-                            $"[NetworkCallback] Player {player.PlayerId} in game scene - attempting to assign ability {abilityToAssign} (stored preference: {storedAbilityIndex})");
-
-                        ac.AssignAbility(abilityToAssign);
-                        Debug.Log(
-                            $"[NetworkCallback] Player {player.PlayerId} assigned ability index {abilityToAssign}");
+                        int abilityIndex = AbilityUIHandler.GetSelectedAbility();
+                        ac.AssignAbility(abilityIndex);
+                        Debug.Log($"[NetworkCallback] Player {player.PlayerId} assigned ability {abilityIndex}");
                     }
                     else
                     {
-                        Debug.LogWarning(
-                            $"[NetworkCallback] Player {player.PlayerId} has no AbilityController component");
+                        Debug.LogWarning($"[NetworkCallback] Player {player.PlayerId} has no AbilityController component");
                     }
                 }
                 else if (isLobby)
@@ -343,8 +332,6 @@ public class NetworkCallbackHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         Debug.Log("[NetworkCallback] Game scene loaded, handling player transition");
-        Debug.Log("[NetworkCallback] Printing all stored ability preferences before spawning...");
-        AbilityUIHandler.PrintAllPreferences();
 
         /* Despawn all lobby players (they were spawned by each client locally in lobby) */
         var allPlayers = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);

@@ -124,6 +124,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b54857344dd48369e7604a1f62947ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  abilityConfig: {fileID: 11400000, guid: 5d29f32f5fee340c38ded9648c39ba45, type: 2}
   _AbilityIndex: 0
 --- !u!114 &-5903516572560228463
 MonoBehaviour:

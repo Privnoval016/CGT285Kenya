@@ -30,6 +30,7 @@ using Fusion;
 [RequireComponent(typeof(NetworkPlayer))]
 public class AbilityController : NetworkBehaviour
 {
+    [SerializeField] private AbilityAssignmentConfig abilityConfig;
 
     #region Networked State
 
@@ -286,8 +287,7 @@ public class AbilityController : NetworkBehaviour
     /**
      * <summary>
      * Rebuilds the in-memory ability instance from AbilityIndex.
-     * Uses JSON round-trip to clone the template so per-player runtime fields
-     * (e.g. DashAbility.isDashing) don't corrupt the ScriptableObject asset.
+     * Creates a fresh instance with default serialized values.
      * Records the built index so Render() can detect future changes.
      * </summary>
      */
@@ -300,10 +300,7 @@ public class AbilityController : NetworkBehaviour
         AbilityBase template = GetAbilityByIndex(idx);
         if (template == null) return;
 
-        string json = JsonUtility.ToJson(template);
-        activeAbility = (AbilityBase)System.Activator.CreateInstance(template.GetType());
-        JsonUtility.FromJsonOverwrite(json, activeAbility);
-
+        activeAbility = template;
         activeAbility.Initialize(this);
         Debug.Log($"[AbilityController] Player {(Object != null ? Object.InputAuthority.PlayerId.ToString() : "?")} equipped {activeAbility.AbilityName} (index {idx})");
     }
@@ -311,13 +308,19 @@ public class AbilityController : NetworkBehaviour
     /**
      * <summary>
      * Direct ability lookup by type index (used by UI-based assignment).
-     * Returns the built-in ability template by index.
+     * Returns the ability from config or creates a default instance.
      * </summary>
      * <param name="index">Ability type index (0=Dash, 1=Teleport, 2=Enlarge, 3=Obstruction).</param>
      * <returns>The AbilityBase template.</returns>
      */
     private AbilityBase GetAbilityByIndex(int index)
     {
+        if (abilityConfig != null)
+        {
+            return abilityConfig.GetAbility(index);
+        }
+
+        /* Fallback to default instances if no config assigned */
         return index switch
         {
             0 => new DashAbility(),
