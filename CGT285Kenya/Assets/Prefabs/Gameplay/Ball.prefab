@@ -172,7 +172,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a08289cfeea4b198949a0596c9d9938, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groundDrag: 3.5
+  groundDrag: 2
   airDrag: 0.3
   maxSpeed: 28
   gravityStrength: 12

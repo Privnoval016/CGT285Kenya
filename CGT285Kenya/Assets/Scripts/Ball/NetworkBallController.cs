@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using Fusion;
 
@@ -347,6 +348,17 @@ public class NetworkBallController : NetworkBehaviour
     #region Goal Handling
 
     private void OnTriggerEnter(Collider other)
+    {
+        if (!Object.HasStateAuthority) return;
+
+        if (other.CompareTag("Goal"))
+        {
+            var goal = other.GetComponent<GoalTrigger>();
+            if (goal != null) HandleGoal(goal.Team);
+        }
+    }
+
+    private void OnTriggerStay(Collider other)
     {
         if (!Object.HasStateAuthority) return;
 

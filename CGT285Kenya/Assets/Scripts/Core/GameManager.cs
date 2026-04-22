@@ -73,6 +73,8 @@ public class GameManager : NetworkBehaviour
         MatchActive = true;
 
         SpawnBall();
+        
+        ResetAllPlayers();
 
         Debug.Log("Match started!");
     }
@@ -114,7 +116,7 @@ public class GameManager : NetworkBehaviour
 
     private void ResetAllPlayers()
     {
-        if (!Object.HasStateAuthority) return;
+        //if (!Object.HasStateAuthority) return;
 
         var allPlayers = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
         
@@ -176,7 +178,7 @@ public class GameManager : NetworkBehaviour
 
     public void ResetBall()
     {
-        if (!Object.HasStateAuthority) return;
+        //if (!Object.HasStateAuthority) return;
 
         if (cachedBall != null && cachedBall.Object != null && cachedBall.Object.IsValid)
         {

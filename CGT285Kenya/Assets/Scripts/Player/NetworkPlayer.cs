@@ -31,6 +31,9 @@ public class NetworkPlayer : NetworkBehaviour
     [SerializeField] private float moveSpeed = 6f;
     [SerializeField] private float rotationSpeed = 720f;
     [SerializeField] private float gravity = 20f;
+    private float localSpeedMultiplier = 1f;
+    
+    private float ActualMoveSpeed => moveSpeed * localSpeedMultiplier;
 
     [Header("Ball Interaction")]
     [SerializeField] private float ballPickupRange = 1.5f;
@@ -254,7 +257,7 @@ public class NetworkPlayer : NetworkBehaviour
             }
         }
 
-        Vector3 move = moveDir * moveSpeed * speedMultiplier * Runner.DeltaTime;
+        Vector3 move = moveDir * ActualMoveSpeed * speedMultiplier * Runner.DeltaTime;
 
         /* Update animation based on movement */
         if (Object.HasStateAuthority)
@@ -599,6 +602,11 @@ public class NetworkPlayer : NetworkBehaviour
         {
             IsAnimatingKick = false;
         }
+    }
+
+    public void SetLocalSpeedMultiplier(float speedMultiplier)
+    {
+        localSpeedMultiplier = speedMultiplier;
     }
 
     #endregion

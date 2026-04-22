@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: -5903516572560228463}
   m_Layer: 0
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -96,16 +96,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20b86ce2c07145299beed208963e9796, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 5
+  moveSpeed: 7.5
   rotationSpeed: 720
   gravity: 20
   ballPickupRange: 1.5
   ballStealRange: 1.2
   stealDotThreshold: 0.65
-  passSpeed: 10
-  shotSpeed: 20
+  passSpeed: 20
+  shotSpeed: 40
   shotChargeThreshold: 0.3
-  team0Color: {r: 0, g: 0, b: 1, a: 1}
+  team0Color: {r: 0, g: 0.7672777, b: 1, a: 1}
   team1Color: {r: 1, g: 0, b: 0, a: 1}
   visualMesh: {fileID: 6275078034213404020}
   animator: {fileID: 4884805310053176568}
