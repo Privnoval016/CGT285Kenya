@@ -225,7 +225,7 @@ public class NetworkBallController : NetworkBehaviour
 
     /**
      * <summary>
-     * Direct release — only valid when this client IS the state authority.
+     * Direct release — only valid when this client is the state authority.
      * </summary>
      * <param name="direction">Normalised world-space direction.</param>
      * <param name="speed">Launch speed in m/s.</param>

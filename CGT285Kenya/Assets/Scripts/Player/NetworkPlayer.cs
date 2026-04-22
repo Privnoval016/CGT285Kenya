@@ -103,7 +103,6 @@ public class NetworkPlayer : NetworkBehaviour
     private bool prevAnimatingRun = false;
     private bool prevAnimatingKick = false;
 
-    // Throttle RPC sends — only re-send pickup/steal every few ticks.
     private int lastPickupRpcTick = -100;
     private int lastStealRpcTick = -100;
     private const int RpcResendInterval = 6;

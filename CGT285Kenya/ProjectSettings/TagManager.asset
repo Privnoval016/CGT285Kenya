@@ -6,16 +6,17 @@ TagManager:
   tags:
   - Ball
   - Goal
+  - FxTemporaire
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Player
   - Water
   - UI
   - Ground
-  - 
-  - 
+  - GoalBlocks
+  - Ball
   - 
   - 
   - 
