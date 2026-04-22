@@ -33,6 +33,8 @@ namespace Networking
         private int currentPlayerCount;
         private string currentSessionName;
         private int gameSceneBuildIndex = -1;
+        
+        public static Queue<int> playerIndexQueue = new Queue<int>();
 
         private void Awake()
         {

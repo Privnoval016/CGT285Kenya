@@ -523,7 +523,7 @@ public class NetworkPlayer : NetworkBehaviour
      * </summary>
      * <param name="spawnPosition">The position to reset the player to</param>
      */
-    public void ResetToSpawnPosition(Vector3 spawnPosition)
+     public void ResetToSpawnPosition(Vector3 spawnPosition)
     {
         transform.position = spawnPosition;
         moveDir = Vector3.zero;
@@ -540,11 +540,24 @@ public class NetworkPlayer : NetworkBehaviour
 
     /**
      * <summary>
+     * RPC to reset this player to a spawn position.
+     * Can be called from any client; will execute on the player's InputAuthority.
+     * </summary>
+     * <param name="spawnPosition">The position to reset the player to</param>
+     */
+    [Rpc(RpcSources.All, RpcTargets.InputAuthority)]
+    public void RPC_ResetToSpawnPosition(Vector3 spawnPosition)
+    {
+        ResetToSpawnPosition(spawnPosition);
+    }
+
+    /**
+     * <summary>
      * Triggers the kick animation by setting IsAnimatingKick for one tick.
      * Should only be called on the state authority (when the ball is released).
      * </summary>
      */
-    private void TriggerKickAnimation()
+     private void TriggerKickAnimation()
     {
         if (Object.HasStateAuthority)
         {

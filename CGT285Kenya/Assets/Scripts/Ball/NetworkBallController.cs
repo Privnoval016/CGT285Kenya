@@ -243,7 +243,7 @@ public class NetworkBallController : NetworkBehaviour
      * </summary>
      * <param name="spawnPosition">The position to reset the ball to</param>
      */
-    public void ResetToSpawnPosition(Vector3 spawnPosition)
+     public void ResetToSpawnPosition(Vector3 spawnPosition)
     {
         if (!Object.HasStateAuthority) return;
 
@@ -254,6 +254,19 @@ public class NetworkBallController : NetworkBehaviour
         
         transform.position = spawnPosition;
         Debug.Log($"[NetworkBall] Reset to spawn position: {spawnPosition}");
+    }
+
+    /**
+     * <summary>
+     * RPC to reset the ball to a spawn position.
+     * Can be called from any client; will execute on the ball's state authority.
+     * </summary>
+     * <param name="spawnPosition">The position to reset the ball to</param>
+     */
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RPC_ResetToSpawnPosition(Vector3 spawnPosition)
+    {
+        ResetToSpawnPosition(spawnPosition);
     }
 
     #endregion

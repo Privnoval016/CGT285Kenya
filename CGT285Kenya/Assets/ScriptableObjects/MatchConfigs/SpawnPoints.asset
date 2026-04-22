@@ -12,11 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ffaf57112d944d6fb2c53c3b86f947f9, type: 3}
   m_Name: SpawnPoints
   m_EditorClassIdentifier: 
+  numPlayersPerTeam: 2
   team0Spawns:
     positions:
     - {x: -3, y: 0, z: 3}
     - {x: -3, y: 0, z: -3}
   team1Spawns:
+    positions:
+    - {x: 3, y: 0, z: 3}
+    - {x: 3, y: 0, z: -3}
+  lobbyTeam0Spawns:
+    positions:
+    - {x: -3, y: 0, z: 3}
+    - {x: -3, y: 0, z: -3}
+  lobbyTeam1Spawns:
     positions:
     - {x: 3, y: 0, z: 3}
     - {x: 3, y: 0, z: -3}
