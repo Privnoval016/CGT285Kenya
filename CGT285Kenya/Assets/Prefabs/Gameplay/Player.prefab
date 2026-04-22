@@ -102,7 +102,7 @@ MonoBehaviour:
   ballPickupRange: 1.5
   ballStealRange: 1.2
   stealDotThreshold: 0.65
-  passSpeed: 20
+  passSpeed: 15
   shotSpeed: 40
   shotChargeThreshold: 0.3
   team0Color: {r: 0, g: 0.7672777, b: 1, a: 1}

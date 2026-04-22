@@ -1,12 +1,5 @@
 using UnityEngine;
 
-/**
- * <summary>
- * SpeedBoostTrigger is a local trigger that increases player movement speed.
- * This is a purely local effect - no networking involved.
- * Attach this to a trigger collider to create speed boost zones.
- * </summary>
- */
 [RequireComponent(typeof(Collider))]
 public class SpeedBoostTrigger : MonoBehaviour
 {
